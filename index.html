@@ -315,6 +315,22 @@ html[data-theme=light] .sheet{background:rgba(255,255,255,.98)}
   .toast{bottom:calc(86px + env(safe-area-inset-bottom))}
   .brandrow{padding-bottom:12px}
 }
+.mback{position:fixed;inset:0;z-index:90;background:rgba(2,6,14,.62);display:flex;align-items:flex-end;justify-content:center;padding:12px;animation:fade .15s ease-out;-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px)}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{width:100%;max-width:440px;border:1px solid var(--line2);border-radius:22px;padding:20px 20px calc(16px + env(safe-area-inset-bottom));box-shadow:var(--shadow);animation:rise .2s ease-out}
+html[data-theme=dark] .modal{background:#0d1424}
+html[data-theme=light] .modal{background:#fff}
+@keyframes rise{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+.mtop{display:flex;gap:14px;align-items:center;margin-bottom:12px}
+.mtop .logo{flex:none;width:52px;height:52px;border-radius:14px;font-size:18px}
+.mt{font:700 18px/1.2 "Space Grotesk",sans-serif}
+.md{color:var(--ink2);font-size:13.5px;margin-top:3px}
+.isteps{margin:14px 0 6px;padding-left:22px;display:grid;gap:10px;font-size:14.5px}
+.isteps li{padding-left:2px}
+.isteps .ki{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:7px;background:var(--chip);color:var(--chip-ink);vertical-align:-6px}
+.isteps .ki svg{width:15px;height:15px}
+.mrow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:14px}
+.mrow .btn{margin-top:0}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
@@ -395,6 +411,7 @@ var ICONS = {
   trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8 20h8M10 17h4"/></svg>',
   ballot: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8l2 2 4-4M8 15h8"/></svg>',
   grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1.5"/><rect x="14" y="4" width="6" height="6" rx="1.5"/><rect x="4" y="14" width="6" height="6" rx="1.5"/><rect x="14" y="14" width="6" height="6" rx="1.5"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M6 11v8a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-8"/></svg>',
   arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 };
 
@@ -634,7 +651,6 @@ var R = {};
 R.home = function (root) {
   var m = D.meta;
   pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every 6 hours · last synced ' + m.synced, 'League HQ');
-  installCard(root);
   var tiles = add(root, el('div', 'tiles'));
   var belt = D.club && D.club.belt;
   if (belt && belt.holder) {
@@ -678,34 +694,59 @@ R.home = function (root) {
   }
 };
 
-function installCard(root) {
-  if (IN_GAS) {
-    if (APP_URL.indexOf('http') !== 0) return;
-    var g = add(root, el('div', 'card install'));
-    add(g, el('div', 'logo', 'DL'));
-    var gt = add(g, el('div'));
-    add(gt, el('div', 't', 'Get the Dynasty League app'));
-    add(gt, el('div', 'd', 'Faster, full screen, and right on your home screen. Open it on your phone, then add it to your home screen.'));
-    var a = add(gt, el('a', 'btn', 'Open the app'));
-    a.href = APP_URL; a.target = '_top'; a.style.display = 'inline-block'; a.style.textDecoration = 'none';
-    return;
+function isStandalone() { return !!(window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)); }
+function closeInstall() { var m = document.getElementById('installModal'); if (m) m.remove(); }
+function installSteps(box) {
+  var ua = navigator.userAgent;
+  var ios = /iPhone|iPad|iPod/.test(ua), android = /Android/.test(ua);
+  var inApp = /FBAN|FBAV|Instagram|GroupMe|Line\/|Snapchat|Twitter|LinkedInApp|GSA\//.test(ua);
+  var ol = add(box, el('ol', 'isteps'));
+  function step(html) { var li = add(ol, el('li')); li.innerHTML = html; }
+  var share = '<span class="ki">' + ICONS.share + '</span>';
+  if (inApp) {
+    step('Tap the <b>\u2022\u2022\u2022</b> menu and choose <b>Open in ' + (ios ? 'Safari' : 'Chrome') + '</b>. Apps can\u2019t be added from inside other apps.');
+    step(ios ? 'In Safari, tap ' + share + ' <b>Share</b>, then <b>Add to Home Screen</b>.' : 'In Chrome, tap <b>\u22ee</b> and choose <b>Install app</b> or <b>Add to Home screen</b>.');
+  } else if (ios) {
+    step('Tap ' + share + ' <b>Share</b> ' + (/CriOS|FxiOS|EdgiOS/.test(ua) ? '(top right in Chrome)' : 'at the bottom of Safari') + '.');
+    step('Scroll down and tap <b>Add to Home Screen</b>.');
+    step('Tap <b>Add</b>.');
+  } else if (android && !DEFERRED) {
+    step('Tap the <b>\u22ee</b> menu in the top right of Chrome.');
+    step('Tap <b>Install app</b> or <b>Add to Home screen</b>.');
+  } else if (!DEFERRED) {
+    step('Open this page on your phone, then add it to your home screen from the browser\u2019s share or menu button.');
   }
-  var standalone = window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
-  if (standalone || load('dl-install-dismissed')) return;
-  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  var c = add(root, el('div', 'card install'));
-  add(c, el('div', 'logo', 'DL'));
-  var tx = add(c, el('div'));
-  add(tx, el('div', 't', 'Add Dynasty League to your home screen'));
-  var who = LIVE && LIVE.me ? ' You’re signed in as ' + LIVE.me.owner + ', and the app will remember you.' : '';
-  add(tx, el('div', 'd', (ios ? 'In Safari, tap the Share button, then “Add to Home Screen”.' : DEFERRED ? 'Install it like an app: full screen, with its own icon.' : 'Open your browser menu and choose “Add to Home screen” or “Install app”.') + who));
+  step('Open <b>Dynasty</b> from your home screen. You\u2019ll pick your name once, and it remembers you.');
+}
+function showInstall(force) {
+  if (IN_GAS || isStandalone() || document.getElementById('installModal')) return;
+  if (!force) {
+    var phone = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (!phone || load('dl-install-never')) return;
+    var last = +(load('dl-install-last') || 0);
+    if (Date.now() - last < 20 * 3600e3) return;
+  }
+  store('dl-install-last', String(Date.now()));
+  var back = add(document.body, el('div', 'mback'));
+  back.id = 'installModal';
+  back.onclick = function (ev) { if (ev.target === back) closeInstall(); };
+  var m = add(back, el('div', 'modal'));
+  var top = add(m, el('div', 'mtop'));
+  add(top, el('div', 'logo', 'DL'));
+  var tt = add(top, el('div'));
+  add(tt, el('div', 'mt', 'Get the Dynasty League app'));
+  add(tt, el('div', 'md', 'It looks like you\u2019re in your browser. Put the app on your home screen: full screen, faster, and it remembers you.'));
   if (DEFERRED) {
-    var b = add(tx, el('button', 'btn', 'Install app'));
-    b.onclick = function () { DEFERRED.prompt(); DEFERRED = null; c.remove(); };
+    var ib = add(m, el('button', 'btn', 'Install the app'));
+    ib.style.width = '100%';
+    ib.onclick = function () { var d2 = DEFERRED; DEFERRED = null; d2.prompt(); closeInstall(); };
   }
-  var x = add(c, el('button', 'x', '×'));
-  x.title = 'Hide';
-  x.onclick = function () { store('dl-install-dismissed', '1'); c.remove(); };
+  installSteps(m);
+  var row = add(m, el('div', 'mrow'));
+  var later = add(row, el('button', 'btn ghost', 'Not now'));
+  later.onclick = closeInstall;
+  var have = add(row, el('button', 'linkbtn', 'I already have the app'));
+  have.onclick = function () { store('dl-install-never', '1'); closeInstall(); };
 }
 
 function gameOfWeek() {
@@ -1641,11 +1682,6 @@ function startPage() {
   if (hash && R[hash]) return hash;
   var start = 'home';
   try { start = sessionStorage.getItem('dl-page') || 'home'; } catch (e) {}
-  if (LIVE && LIVE.me) {
-    var key = 'dl-welcome-' + LIVE.me.token;
-    if (IN_GAS) start = 'votes';
-    else if (URL_TOKEN && !load(key)) { start = 'votes'; store(key, '1'); }
-  }
   return R[start] ? start : 'home';
 }
 function loadingScreen(msg, retry) {
@@ -1701,7 +1737,8 @@ function registerWorker() {
     return;
   }
   // Installed app / app website: load data from the league server, showing the last copy right away.
-  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); DEFERRED = e; if (CUR === 'home' && D && D.meta) show('home', true); });
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); DEFERRED = e; if (document.getElementById('installModal')) { closeInstall(); showInstall(true); } });
+  window.addEventListener('appinstalled', function () { store('dl-install-never', '1'); closeInstall(); });
   TOKEN = URL_TOKEN || load('dl-token') || '';
   if (URL_TOKEN) store('dl-token', URL_TOKEN);
   var rb = document.getElementById('refreshBtn');
@@ -1718,6 +1755,7 @@ function registerWorker() {
   } else loadingScreen();
   fetchData(false);
   registerWorker();
+  setTimeout(function () { showInstall(false); }, 1200);
   window.addEventListener('hashchange', function () { var h = (location.hash || '').replace('#', ''); if (R[h] && h !== CUR && D && D.meta) show(h); });
   if (window.matchMedia) { var mq = window.matchMedia('(max-width: 640px)'), rr = function () { if (D && D.meta) show(CUR, true); }; if (mq.addEventListener) mq.addEventListener('change', rr); else if (mq.addListener) mq.addListener(rr); }
   document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && Date.now() - LAST_FETCH > 5 * 60 * 1000) fetchData(false); });
