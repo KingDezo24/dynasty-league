@@ -268,6 +268,16 @@ html[data-theme=light] .toast{background:rgba(255,255,255,.97)}
 .signin{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
 .signin input{flex:1 1 240px}
 .signin .btn{margin-top:0}
+.sugg{margin-top:10px;border:1px solid var(--line);border-radius:12px;padding:10px 12px;background:var(--card2)}
+.sugg .sh{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px}
+.sugg .si{padding:8px 0;border-top:1px solid var(--line)}
+.sugg .si:first-of-type{border-top:0}
+.sugg .sm{font-size:12px;color:var(--muted)}
+.sugg .st{white-space:pre-line;font-size:14px;margin-top:2px}
+.sugg .sf{display:grid;gap:6px;margin-top:8px}
+.sugg textarea{font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--card);color:var(--ink);width:100%}
+.sugg .btn{margin-top:0}
+.signin select{flex:1 1 220px}
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 </head>
@@ -309,7 +319,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -865,29 +875,58 @@ function whoCard(root, me, what) {
   var who = add(root, el('div', 'card'));
   if (me) {
     add(who, el('h2', null, 'Signed in as ' + me.owner + ' (' + me.team + ')'));
-    add(who, el('p', 'note', 'You’re signed in with your personal link, so anything you submit is recorded for your team. Do not share the link.')).style.marginTop = '-6px';
+    add(who, el('p', 'note', 'Anything you propose, vote or pick is recorded for your team.')).style.marginTop = '-6px';
   } else {
-    add(who, el('h2', null, 'Want to ' + what + '?'));
-    add(who, el('p', 'note', IN_GAS ? 'Open this site from the personal link the commissioner sent you. Anyone can look around, but taking part needs your link. Lost it? Ask the commissioner.' : 'Paste the personal link the commissioner sent you. The app remembers you after that. Lost it? Ask the commissioner.')).style.marginTop = '-6px';
+    add(who, el('h2', null, IN_GAS ? 'Want to ' + what + '?' : 'Who are you?'));
+    add(who, el('p', 'note', IN_GAS ? 'Use the league app to take part: ' + APP_URL : 'Pick your name to ' + what + '. The app remembers you on this phone.')).style.marginTop = '-6px';
     if (!IN_GAS) signInBox(who);
   }
   if (me && !IN_GAS) {
-    var so = add(who, el('button', 'linkbtn', 'Not ' + me.owner + '? Sign out'));
+    var so = add(who, el('button', 'linkbtn', 'Not ' + me.owner + '? Switch'));
     so.style.marginTop = '8px';
     so.onclick = function () { TOKEN = ''; store('dl-token', null); fetchData(true); };
   }
 }
 function signInBox(host) {
   var row = add(host, el('div', 'signin'));
-  var inp = add(row, el('input'));
-  inp.type = 'text'; inp.placeholder = 'Paste your personal link'; inp.autocomplete = 'off';
-  var b = add(row, el('button', 'btn', 'Sign in'));
+  var sel = add(row, el('select'));
+  add(sel, el('option', null, 'Pick your name')).value = '';
+  ((LIVE && LIVE.owners) || []).forEach(function (n) { add(sel, el('option', null, n)).value = n; });
+  var b = add(row, el('button', 'btn', 'Continue'));
   var msg = add(host, el('p', 'msg'));
   b.onclick = function () {
-    var v = inp.value.trim(), m = v.match(/k=([A-Za-z0-9]+)/) || v.match(/^([A-Za-z0-9]{10,})$/);
-    if (!m) { msg.textContent = 'That doesn’t look like a personal link. Copy the whole link from the commissioner’s text.'; return; }
-    TOKEN = m[1]; store('dl-token', TOKEN); msg.textContent = 'Signing in...'; b.disabled = true;
+    if (!sel.value) { msg.textContent = 'Pick your name first.'; return; }
+    TOKEN = sel.value; store('dl-token', TOKEN); msg.textContent = 'One moment...'; b.disabled = true;
     fetchData(true);
+  };
+}
+function suggestionsBlock(box, p, me) {
+  var list = p.suggestions || [];
+  var open = ['Submitted', 'Discussion', 'Voting'].indexOf(p.status) >= 0;
+  if (!list.length && !open) return;
+  var wrap = add(box, el('div', 'sugg'));
+  add(wrap, el('div', 'sh', 'Suggested fixes' + (list.length ? ' (' + list.length + ')' : '')));
+  if (!list.length) add(wrap, el('div', 'sm', 'No suggestions yet.'));
+  list.forEach(function (s2) {
+    var it = add(wrap, el('div', 'si'));
+    add(it, el('div', 'sm', s2.by + (s2.when ? ' \u00b7 ' + s2.when : '')));
+    add(it, el('div', 'st', s2.text));
+  });
+  if (!open) return;
+  if (!me) { add(wrap, el('div', 'sm', IN_GAS ? 'Use the league app to add a suggestion.' : 'Pick your name at the top of this page to add a suggestion.')).style.marginTop = '6px'; return; }
+  var f = add(wrap, el('div', 'sf'));
+  var ta = add(f, el('textarea'));
+  ta.rows = 2; ta.maxLength = 1000; ta.placeholder = 'Suggest a fix or change to this proposal';
+  var b = add(f, el('button', 'btn ghost', 'Post suggestion'));
+  b.style.justifySelf = 'start';
+  var m = add(f, el('p', 'msg'));
+  b.onclick = function () {
+    if (!ta.value.trim()) { m.textContent = 'Write your suggestion first.'; return; }
+    b.disabled = true; m.textContent = 'Posting...';
+    runner().withSuccessHandler(function (res) {
+      b.disabled = false;
+      if (res.ok) { if (res.live) LIVE = res.live; saveCache(); show('votes', true); toast(res.message); } else m.textContent = res.message;
+    }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not post: ' + e.message; }).addSuggestion(me.token, p.id, ta.value);
   };
 }
 R.votes = function (root) {
@@ -908,6 +947,7 @@ R.votes = function (root) {
       if (p.text) add(box, el('p', 'ptext', p.text));
       if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
       add(box, el('p', 'note', timeline(p)));
+      if ((p.suggestions || []).length) add(box, el('p', 'meta', p.suggestions.length + (p.suggestions.length === 1 ? ' suggested fix' : ' suggested fixes') + ' \u2014 see All proposals below.'));
       var opts = add(box, el('div', 'opts'));
       ['For', 'Against', 'Abstain'].forEach(function (v) {
         var lab = add(opts, el('label', 'opt'));
@@ -973,13 +1013,15 @@ R.votes = function (root) {
     if (p.text) add(box, el('p', 'ptext', p.text));
     if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
     add(box, el('p', 'note', timeline(p)));
+    suggestionsBlock(box, p, me);
   });
   var how = add(root, el('div', 'card'));
   add(how, el('h2', null, 'How it works'));
   var ul = add(how, el('ul', 'tips'));
-  ["Submit a proposal any time from your personal link. Everything submitted by 11:59 PM ET on the last day of February goes on that year's ballot.",
+  ["Pick your name, then submit a proposal any time. Everything submitted by 11:59 PM ET on the last day of February goes on that year's ballot.",
     'Two weeks before the deadline, the league group chat gets a reminder.',
-    'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Vote with your personal link.',
+    'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Pick your name and vote right here.',
+    'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
     'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.'
@@ -1289,7 +1331,7 @@ R.pickem = function (root) {
     var h = add(c, el('h2', null, 'Week ' + nx.week + ' games'));
     add(h, el('span', 'chip ' + (locked ? 'bad' : 'good'), locked ? 'Locked' : 'Open'));
     if (lv && lv.week === nx.week) add(h, el('span', 'chip dim', lv.count + ' of 12 owners have picked'));
-    if (!me) { add(c, el('p', 'note', IN_GAS ? 'Open this site from your personal link to make picks. Everyone’s picks are revealed once the week locks.' : 'Sign in with your personal link to make picks. Everyone’s picks are revealed once the week locks.')).style.margin = '-4px 0 12px'; if (!IN_GAS && !locked) signInBox(c); }
+    if (!me) { add(c, el('p', 'note', IN_GAS ? 'Open this site from your personal link to make picks. Everyone’s picks are revealed once the week locks.' : 'Pick your name to make picks. Everyone’s picks are revealed once the week locks.')).style.margin = '-4px 0 12px'; if (!IN_GAS && !locked) signInBox(c); }
     else if (!locked) add(c, el('p', 'note', 'Tap a team to pick it. You can change picks until kickoff Thursday night.')).style.margin = '-4px 0 12px';
     var btns = {};
     nx.games.forEach(function (gm) {
@@ -1459,11 +1501,12 @@ function fetchData(manual) {
     D = j.data; LIVE = j.live;
     var badToken = TOKEN && !(LIVE && LIVE.me);
     if (badToken) { TOKEN = ''; store('dl-token', null); }
+    else if (LIVE && LIVE.me && LIVE.me.token && TOKEN !== LIVE.me.token) { TOKEN = LIVE.me.token; store('dl-token', TOKEN); }
     saveCache();
     setHeader(); buildNav();
     if (first) show(startPage());
     else if (manual || !TOUCHED || (CUR !== 'votes' && CUR !== 'pickem')) show(CUR, !manual);
-    if (badToken) toast('That personal link isn’t valid. Ask the commissioner for a new one.');
+    if (badToken) toast('Couldn’t sign you in. Pick your name again.');
     else if (manual) toast('Up to date · synced ' + D.meta.synced);
   }).catch(function () {
     btn.className = 'iconbtn';
