@@ -1441,6 +1441,7 @@ R.values = function (root) {
     'The average fit by position right now: ' + fitTxt + '. Rookies and players with only a few games lean on their position’s average.',
     'QBs keep their plain market value, with no scoring adjustment.',
     'League value = market value × fit. Kickers and defenses count as 0, like in the trade market.',
+    'Everything is scaled so the most valuable player is worth exactly 10,000. Picks and market values are scaled the same way, so comparisons stay fair.',
     'Picks use the market’s pick values. Next year’s firsts are early, middle or late from the projected draft order; later years are a generic pick.',
     'The calculator adds values straight up. It doesn’t add a premium for getting the best player in a 2-for-1, so use judgment there.'
   ].forEach(function (t) { add(ul, el('li', null, t)); });
