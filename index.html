@@ -1435,10 +1435,11 @@ R.values = function (root) {
   add(dt, el('summary', null, 'How values work'));
   var ul = add(dt, el('ul', 'tips'));
   var f = v.fit || {};
-  var fitTxt = ['QB', 'RB', 'WR', 'TE'].map(function (p) { return p + ' ' + sgn((f[p] || 100) - 100) + '%'; }).join(', ');
+  var fitTxt = ['RB', 'WR', 'TE'].map(function (p) { return p + ' ' + sgn((f[p] || 100) - 100) + '%'; }).join(', ');
   ['Market value comes from FantasyCalc, which tracks real dynasty trades in leagues set up like ours (' + v.teamsN + ' teams, ' + (v.qbs === 2 ? 'superflex' : '1 QB') + '). Those values still lean on PPR leagues, so we refit them to our scoring.',
-    'Scoring fit: each player’s games from this season and last are scored two ways, with our league’s scoring and with PPR, and compared with a replacement-level player at his position. If his production holds up better in our scoring (rushing, yards, touchdowns, 6-point passing TDs), his value goes up. If he leans on catches, it goes down.',
+    'Scoring fit (RB, WR, TE): each player’s games from this season and last are scored two ways, with our league’s scoring and with PPR, and compared with a replacement-level player at his position. If his production holds up better in our scoring (rushing, yards, touchdowns), his value goes up. If he leans on catches, it goes down.',
     'The average fit by position right now: ' + fitTxt + '. Rookies and players with only a few games lean on their position’s average.',
+    'QBs keep their plain market value, with no scoring adjustment.',
     'League value = market value × fit. Kickers and defenses count as 0, like in the trade market.',
     'Picks use the market’s pick values. Next year’s firsts are early, middle or late from the projected draft order; later years are a generic pick.',
     'The calculator adds values straight up. It doesn’t add a premium for getting the best player in a 2-for-1, so use judgment there.'
