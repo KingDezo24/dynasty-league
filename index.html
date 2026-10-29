@@ -868,7 +868,7 @@ function whoCard(root, me, what) {
     add(who, el('p', 'note', 'You’re signed in with your personal link, so anything you submit is recorded for your team. Do not share the link.')).style.marginTop = '-6px';
   } else {
     add(who, el('h2', null, 'Want to ' + what + '?'));
-    add(who, el('p', 'note', IN_GAS ? 'Open this site from the personal link the commissioner texted and emailed you. Anyone can look around, but taking part needs your link. Lost it? Ask the commissioner.' : 'Paste the personal link the commissioner texted and emailed you. The app remembers you after that. Lost it? Ask the commissioner.')).style.marginTop = '-6px';
+    add(who, el('p', 'note', IN_GAS ? 'Open this site from the personal link the commissioner sent you. Anyone can look around, but taking part needs your link. Lost it? Ask the commissioner.' : 'Paste the personal link the commissioner sent you. The app remembers you after that. Lost it? Ask the commissioner.')).style.marginTop = '-6px';
     if (!IN_GAS) signInBox(who);
   }
   if (me && !IN_GAS) {
@@ -944,7 +944,7 @@ R.votes = function (root) {
     var warn = add(f, el('div', 'warn'));
     warn.style.display = 'none';
     add(warn, el('strong', null, 'Urgent matters are to be taken seriously.'));
-    add(warn, el('p', null, 'Urgent is only for problems that cannot wait for the regular March vote, like a rule gap affecting games this season. Submitting it texts and emails the entire league right away, starts a 48-hour discussion in the group chat, and then opens a 24-hour vote. Do not use Urgent to skip the regular calendar.'));
+    add(warn, el('p', null, 'Urgent is only for problems that cannot wait for the regular March vote, like a rule gap affecting games this season. Submitting it posts to the league group chat right away, starts a 48-hour discussion there, and then opens a 24-hour vote. Do not use Urgent to skip the regular calendar.'));
     var ackL = add(warn, el('label', 'opt'));
     var ack = add(ackL, el('input'));
     ack.type = 'checkbox';
@@ -979,10 +979,10 @@ R.votes = function (root) {
   var ul = add(how, el('ul', 'tips'));
   ["Submit a proposal any time from your personal link. Everything submitted by 11:59 PM ET on the last day of February goes on that year's ballot.",
     'Two weeks before the deadline, the league group chat gets a reminder.',
-    'Voting opens automatically on March 1, with a notice in the group chat and another 48 hours before it closes. Vote with your personal link.',
-    'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat and emailed to everyone.',
+    'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Vote with your personal link.',
+    'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Urgent proposals skip the calendar: the whole league is notified right away, there is a 48-hour discussion in the group chat, and then a 24-hour vote.'
+    'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
 };
 
