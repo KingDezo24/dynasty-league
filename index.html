@@ -147,6 +147,10 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .btn:disabled{opacity:.55;cursor:default}
 .btn.ghost{background:var(--card2);color:var(--ink);border:1px solid var(--line2);box-shadow:none}
 .msg{color:var(--accent);font-weight:600;margin:6px 0 0}
+.comm{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:10px;padding:10px 12px;border:1px dashed var(--line2);border-radius:10px;background:var(--card2)}
+.comm .ct{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:100%}
+.comm .btn{margin-top:0;padding:8px 14px}
+.comm .msg{width:100%;margin:0}
 .warn{background:var(--danger-bg);border:1px solid rgba(248,113,113,.35);border-left:4px solid #dc2626;border-radius:10px;padding:12px 14px;margin-top:6px}
 .warn p{margin:6px 0 10px;color:var(--ink2)}
 .opts{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 4px}
@@ -416,7 +420,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -1212,6 +1216,7 @@ R.votes = function (root) {
     if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
     add(box, el('p', 'note', timeline(p)));
     if (me && p.by === me.owner && (p.status === 'Submitted' || p.status === 'Discussion')) editBlock(box, p, me);
+    if (commCode() && ['Submitted', 'Discussion', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
     suggestionsBlock(box, p, me);
   });
   var how = add(root, el('div', 'card'));
@@ -1223,9 +1228,70 @@ R.votes = function (root) {
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.'
+    'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.',
+    'Only the commissioner can change a proposal’s priority. Moving a proposal onto or off the urgent track is announced in the group chat.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
+  commissionerCard(root);
 };
+
+/* ---- Commissioner tools: unlocked on a device with the code from the private file ---- */
+function commCode() { return load('dl-comm') || ''; }
+function commissionerCard(root) {
+  var cc = add(root, el('div', 'card'));
+  var dt = add(cc, el('details', 'how'));
+  add(dt, el('summary', null, 'Commissioner'));
+  if (commCode()) {
+    add(dt, el('p', 'note', 'Commissioner tools are on for this device: each open proposal above has a priority control.'));
+    var off = add(dt, el('button', 'btn ghost', 'Turn off on this device'));
+    off.onclick = function () { store('dl-comm', null); show('votes'); };
+    return;
+  }
+  add(dt, el('p', 'note', 'For the commissioner only. Enter your commissioner code to change proposal priorities from this device.'));
+  var f = add(dt, el('div', 'form'));
+  var inp = add(f, el('input'));
+  inp.type = 'password'; inp.placeholder = 'Commissioner code'; inp.autocomplete = 'off';
+  var b = add(f, el('button', 'btn', 'Unlock'));
+  var m = add(f, el('p', 'msg'));
+  b.onclick = function () {
+    var code = inp.value.trim();
+    if (!code) { m.textContent = 'Enter the code first.'; return; }
+    b.disabled = true; m.textContent = 'Checking...';
+    runner().withSuccessHandler(function (res) {
+      b.disabled = false;
+      if (res.ok) { store('dl-comm', code); FLASH = res.message; show('votes'); } else m.textContent = res.message;
+    }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not check: ' + e.message; }).checkCommissioner(code);
+  };
+}
+function priorityBlock(box, p) {
+  var w = add(box, el('div', 'comm'));
+  add(w, el('div', 'ct', 'Commissioner: priority'));
+  var sel = add(w, el('select'));
+  PRIORITIES.forEach(function (k) { var o = add(sel, el('option', null, k)); o.value = k; if (k === p.priority) o.selected = true; });
+  var b = add(w, el('button', 'btn', 'Change'));
+  var m = add(w, el('p', 'msg'));
+  var armed = false;
+  sel.onchange = function () { armed = false; b.textContent = 'Change'; m.textContent = ''; };
+  b.onclick = function () {
+    var to = sel.value;
+    if (to === p.priority) { m.textContent = 'Pick a different priority first.'; return; }
+    if (to === 'Urgent' && p.status !== 'Submitted') { m.textContent = 'Only proposals waiting for the regular vote can be made urgent.'; return; }
+    var note = to === 'Urgent' ? 'This starts a 48-hour discussion, then a 24-hour vote, and tells the group chat.'
+      : p.priority === 'Urgent' ? 'This moves it to the regular March ballot' + (p.status === 'Voting' ? ', cancels the urgent vote and clears any votes cast' : '') + ', and tells the group chat.' : '';
+    if (note && !armed) { armed = true; m.textContent = note + ' Tap Confirm to go ahead.'; b.textContent = 'Confirm'; return; }
+    b.disabled = true; m.textContent = 'Saving...';
+    runner().withSuccessHandler(function (res) {
+      b.disabled = false; armed = false; b.textContent = 'Change';
+      if (res.ok) {
+        FLASH = res.message;
+        if (res.live) { res.live.me = LIVE.me; res.live.myVotes = LIVE.myVotes; LIVE = res.live; }
+        show('votes');
+      } else {
+        m.textContent = res.message;
+        if (/commissioner code is not right/.test(res.message)) store('dl-comm', null);
+      }
+    }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not save: ' + e.message; }).setPriority(commCode(), p.id, to);
+  };
+}
 
 /* ---------- Clubhouse ---------- */
 function clubData(key, root) {
