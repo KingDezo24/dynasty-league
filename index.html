@@ -151,6 +151,8 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .comm .ct{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:100%}
 .comm .btn{margin-top:0;padding:8px 14px}
 .comm .msg{width:100%;margin:0}
+.comm .rmrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;width:100%;border-top:1px solid var(--line);padding-top:8px}
+.btn.danger{background:#dc2626;color:#fff;box-shadow:none}
 .warn{background:var(--danger-bg);border:1px solid rgba(248,113,113,.35);border-left:4px solid #dc2626;border-radius:10px;padding:12px 14px;margin-top:6px}
 .warn p{margin:6px 0 10px;color:var(--ink2)}
 .opts{display:flex;gap:18px;flex-wrap:wrap;margin:10px 0 4px}
@@ -420,7 +422,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -1216,7 +1218,7 @@ R.votes = function (root) {
     if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
     add(box, el('p', 'note', timeline(p)));
     if (me && p.by === me.owner && (p.status === 'Submitted' || p.status === 'Discussion')) editBlock(box, p, me);
-    if (commCode() && ['Submitted', 'Discussion', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
+    if (isComm(me) && ['Submitted', 'Discussion', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
     suggestionsBlock(box, p, me);
   });
   var how = add(root, el('div', 'card'));
@@ -1229,19 +1231,21 @@ R.votes = function (root) {
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
     'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.',
-    'Only the commissioner can change a proposal’s priority. Moving a proposal onto or off the urgent track is announced in the group chat.'
+    'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
+    'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
-  commissionerCard(root);
+  if (me && LIVE.commissioner && me.owner === LIVE.commissioner) commissionerCard(root);
 };
 
 /* ---- Commissioner tools: unlocked on a device with the code from the private file ---- */
 function commCode() { return load('dl-comm') || ''; }
+function isComm(me) { return !!(commCode() && me && LIVE && LIVE.commissioner && me.owner === LIVE.commissioner); }
 function commissionerCard(root) {
   var cc = add(root, el('div', 'card'));
   var dt = add(cc, el('details', 'how'));
   add(dt, el('summary', null, 'Commissioner'));
   if (commCode()) {
-    add(dt, el('p', 'note', 'Commissioner tools are on for this device: each open proposal above has a priority control.'));
+    add(dt, el('p', 'note', 'Commissioner tools are on for this device: each open proposal above has priority and remove controls.'));
     var off = add(dt, el('button', 'btn ghost', 'Turn off on this device'));
     off.onclick = function () { store('dl-comm', null); show('votes'); };
     return;
@@ -1290,6 +1294,27 @@ function priorityBlock(box, p) {
         if (/commissioner code is not right/.test(res.message)) store('dl-comm', null);
       }
     }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not save: ' + e.message; }).setPriority(commCode(), p.id, to);
+  };
+  var rw = add(w, el('div', 'rmrow'));
+  var tl = add(rw, el('label', 'opt'));
+  var tell = add(tl, el('input')); tell.type = 'checkbox';
+  add(tl, document.createTextNode('Tell the group chat'));
+  var rb = add(rw, el('button', 'btn danger', 'Remove proposal'));
+  var rarmed = false;
+  rb.onclick = function () {
+    if (!rarmed) { rarmed = true; rb.textContent = 'Tap again to remove'; m.textContent = 'This deletes "' + p.title + '" for good' + (p.status === 'Voting' ? ', cancels its vote and clears any votes cast' : '') + '.'; return; }
+    rb.disabled = true; m.textContent = 'Removing...';
+    runner().withSuccessHandler(function (res) {
+      rb.disabled = false; rarmed = false; rb.textContent = 'Remove proposal';
+      if (res.ok) {
+        FLASH = res.message;
+        if (res.live) { res.live.me = LIVE.me; res.live.myVotes = LIVE.myVotes; LIVE = res.live; }
+        show('votes');
+      } else {
+        m.textContent = res.message;
+        if (/commissioner code is not right/.test(res.message)) store('dl-comm', null);
+      }
+    }).withFailureHandler(function (e) { rb.disabled = false; m.textContent = 'Could not remove: ' + e.message; }).removeProposal(commCode(), p.id, tell.checked);
   };
 }
 
