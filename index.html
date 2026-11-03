@@ -1061,18 +1061,18 @@ function responseEditor(host, rtype, choices) {
   add(sel, el('option', null, 'Custom choices (you write the options)')).value = 'custom';
   sel.value = rtype === 'custom' ? 'custom' : 'standard';
   var box = add(host, el('div', 'chs'));
-  var list = (choices && choices.length ? choices.slice() : ['', '']);
+  var list = (choices && choices.length ? choices.slice() : ['']);
   function draw() {
     box.textContent = '';
     if (sel.value !== 'custom') return;
+    add(box, el('div', 'chfix', 'Choice 1: Keep the current rule (added automatically)'));
     list.forEach(function (v, i) {
       var r = add(box, el('div', 'chr'));
-      var inp = add(r, el('input')); inp.value = v; inp.maxLength = 60; inp.placeholder = 'Choice ' + (i + 1);
+      var inp = add(r, el('input')); inp.value = v; inp.maxLength = 60; inp.placeholder = 'Choice ' + (i + 2);
       inp.oninput = function () { list[i] = inp.value; };
-      if (list.length > 2) { var x = add(r, el('button', null, '×')); x.type = 'button'; x.setAttribute('aria-label', 'Remove choice ' + (i + 1)); x.onclick = function () { list.splice(i, 1); draw(); }; }
+      if (list.length > 1) { var x = add(r, el('button', null, '×')); x.type = 'button'; x.setAttribute('aria-label', 'Remove choice ' + (i + 2)); x.onclick = function () { list.splice(i, 1); draw(); }; }
     });
     if (list.length < 6) { var a = add(box, el('button', 'linkbtn', '+ Add a choice')); a.type = 'button'; a.onclick = function () { list.push(''); draw(); }; }
-    add(box, el('div', 'chfix', 'Choice 1 on the ballot is always: Keep the current rule (added automatically).'));
     add(box, el('div', 'chn', 'The choice with the most votes wins. A tie for first, or "Keep the current rule" winning, means no change.'));
   }
   sel.onchange = draw;
@@ -1082,7 +1082,7 @@ function responseEditor(host, rtype, choices) {
     check: function () {
       if (sel.value !== 'custom') return '';
       var cl = list.map(function (s) { return s.trim(); }).filter(Boolean);
-      if (cl.length < 2) return 'Write at least 2 choices.';
+      if (cl.length < 1) return 'Write at least 1 choice.';
       if (cl.some(function (s) { return /^keep the current rule$/i.test(s); })) return '"Keep the current rule" is added automatically as the first choice. Take it out of your choices.';
       return '';
     }
@@ -1299,7 +1299,7 @@ R.votes = function (root) {
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A For / Against proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Proposals can also use custom choices written by the proposer (2 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins; a tie for first, or Keep the current rule winning, means no change.',
+    'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins; a tie for first, or Keep the current rule winning, means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
     'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
     'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
