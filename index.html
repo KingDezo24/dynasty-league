@@ -472,7 +472,21 @@ var ICONS = {
   arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>'
 };
 
-function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = text; return e; }
+/* Text that comes from the league spreadsheet sometimes talks about sheet tabs; reword it for the app. */
+var APP_TEXT = [
+  [/the Trade Log tab/g, 'the Trades page'],
+  [/ \(Trade Values page in the app\)/g, ' (see Trade Values)'],
+  [/updated every 6 hours/g, 'updated every hour'], [/automatically every 6 hours/g, 'automatically every hour'],
+  [/Enter each payment in the ledger \(blue cells\); totals and balances calculate automatically\./g, 'The ledger below shows every payment by season.'],
+  [/as listed on the Teams tab/g, 'as listed under Teams on League Info'],
+  [/listed on the Scoring Settings tab/g, 'listed under Scoring settings on League Info'],
+  [/recorded on the Dues & Payouts tab/g, 'recorded under Dues & Payouts on League Info'],
+  [/at the top of the Vote History tab/g, 'at the top of Vote History on League Info'],
+  [/summarized on the Vote History tab/g, 'summarized in Vote History on League Info'],
+  [/keeps this workbook/g, 'keeps the league records']
+];
+function appText(t) { if (typeof t !== 'string' || !/ tab\b|6 hours|blue cells|workbook|in the app\)/.test(t)) return t; APP_TEXT.forEach(function (x) { t = t.replace(x[0], x[1]); }); return t; }
+function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined && text !== null) e.textContent = appText(text); return e; }
 function add(p, c) { p.appendChild(c); return c; }
 function icon(name, cls) { var s = el('span', cls || ''); s.innerHTML = ICONS[name] || ''; s.style.display = 'inline-grid'; return s; }
 function isNum(v) { return typeof v === 'number' && isFinite(v); }
@@ -845,8 +859,9 @@ R.power = function (root) {
     if (ti === 0) return { header: b.header.slice(0, 12).concat(['Score', 'Trend']), rows: b.rows.map(function (r) { return r.slice(0, 12).concat([r[11], r[3]]); }), bold: [0, 2], skip: [11],
       cell: function (c, r, td) { if (c === 12) { scoreBar(td, r[12]); return true; } if (c === 13) { spark(td, D.trend[r[13]]); return true; } return false; } };
     var heatCols = {};
-    for (var i = 4; i < b.header.length; i++) heatCols[i] = 'blue';
-    return { skip: [1], heat: heatCols, bold: [2] };
+    var nums = {};
+    for (var i = 4; i < b.header.length; i++) { heatCols[i] = 'blue'; nums[i + 1] = 'num2'; }
+    return { skip: [1], heat: heatCols, bold: [2], num: nums };
   } });
 };
 
@@ -908,7 +923,8 @@ R.picks = function (root) {
     add(c, el('h2', null, (d[0] && d[0][0]) || 'Rookie draft order'));
     if (d[1] && d[1][0]) add(c, el('p', 'note', d[1][0])).style.margin = '-6px 0 10px';
     var rows = d.slice(hi + 1).filter(function (r) { return r[0]; });
-    add(c, table(['Pick', 'Team', 'Owner', 'How the pick is set', 'Max PF'], rows.map(function (r) { return pad(r, 5).slice(0, 5); }), { bold: [1] }));
+    var ORD = ['Lowest', '2nd-lowest', '3rd-lowest', '4th-lowest', '5th-lowest', '6th-lowest'];
+    add(c, table(['Pick', 'Team', 'Owner', 'How the pick is set', 'Max PF'], rows.map(function (r) { r = pad(r, 5).slice(0, 5); var k = Number(r[0]) - 1; if (k >= 0 && k < 6 && /^Lowest Max PF/.test(r[3])) r[3] = r[3].replace(/^Lowest/, ORD[k]); return r; }), { bold: [1] }));
     var rec = rows.filter(function (r) { return r[6]; });
     if (rec.length) {
       var c2 = add(g, el('div', 'card'));
@@ -1056,8 +1072,9 @@ function voteCounter(box, p) {
   add(bar, el('i')).style.width = Math.round(n / total * 100) + '%';
 }
 function hrsTxt(h) { h = Number(h); return h % 24 === 0 && h > 24 ? (h / 24) + ' days' : h + ' hours'; }
+function hrsAdj(h) { h = Number(h); return h % 24 === 0 && h > 24 ? (h / 24) + '-day' : h + '-hour'; }
 function timeline(p) {
-  if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsTxt(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsTxt(p.vh || 24) + ' vote.';
+  if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsAdj(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsAdj(p.vh || 24) + ' vote.';
   if (p.status === 'Opening') return 'The discussion is over. Voting opens when the notice goes out in the group chat and stays open ' + hrsTxt(p.vh || 24) + '.';
   if (p.status === 'Discussion') return 'Discussion in the group chat until ' + p.discEnds + '. Voting opens once the group chat is told, and stays open ' + hrsTxt(p.vh || 24) + '.';
   if (p.status === 'Voting') return 'Voting is open until ' + p.closes + '. Results stay hidden until voting closes.';
@@ -1202,7 +1219,7 @@ R.votes = function (root) {
   if (me && voting.length) {
     var bc = add(root, el('div', 'card'));
     add(bc, el('h2', null, 'Your ballot'));
-    add(bc, el('p', 'note', 'Choose For, Against or Abstain on each proposal, then save. You can change your vote any time until voting closes.')).style.marginTop = '-6px';
+    add(bc, el('p', 'note', 'Make your choice on each proposal, then save. You can change your vote any time until voting closes.')).style.marginTop = '-6px';
     var picks = {};
     voting.forEach(function (p, i) {
       var box = add(bc, el('div', 'prop' + (i === 0 ? ' first' : '')));
@@ -1226,7 +1243,7 @@ R.votes = function (root) {
     var vb = add(bc, el('button', 'btn', 'Save my votes'));
     var vm = add(bc, el('p', 'msg'));
     vb.onclick = function () {
-      if (!Object.keys(picks).length) { vm.textContent = 'Pick For, Against or Abstain first.'; return; }
+      if (!Object.keys(picks).length) { vm.textContent = 'Make a choice on at least one proposal first.'; return; }
       vb.disabled = true; vm.textContent = 'Saving...';
       runner().withSuccessHandler(function (res) {
         vb.disabled = false;
@@ -1311,7 +1328,7 @@ R.votes = function (root) {
     'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Pick your name and vote right here.',
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
-    'While a vote is open, everyone can see how many managers have voted so far. Who voted and how stays private, and the results are only shown once voting closes.',
+    'While a vote is open, everyone can see how many managers have voted so far. Who voted, and how, stays private, and the results are only shown once voting closes.',
     "A For / Against proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
     'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins; a tie for first, or Keep the current rule winning, means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
@@ -1334,7 +1351,7 @@ function commissionerCard(root) {
     off.onclick = function () { store('dl-comm', null); show('votes'); };
     return;
   }
-  add(dt, el('p', 'note', 'For the commissioner only. Enter your commissioner code to change proposal priorities from this device.'));
+  add(dt, el('p', 'note', 'For the commissioner only. Enter your commissioner code to manage proposals from this device.'));
   var f = add(dt, el('div', 'form'));
   var inp = add(f, el('input'));
   inp.type = 'password'; inp.placeholder = 'Commissioner code'; inp.autocomplete = 'off';
@@ -1904,7 +1921,7 @@ R.pickem = function (root) {
     var c = add(root, el('div', 'card'));
     var h = add(c, el('h2', null, 'Week ' + nx.week + ' games'));
     add(h, el('span', 'chip ' + (locked ? 'bad' : 'good'), locked ? 'Locked' : 'Open'));
-    if (lv && lv.week === nx.week) add(h, el('span', 'chip dim', lv.count + ' of 12 owners have picked'));
+    if (lv && lv.week === nx.week) add(h, el('span', 'chip dim', lv.count + ' of 12 owners ' + (lv.count === 1 ? 'has' : 'have') + ' picked'));
     if (!me) { add(c, el('p', 'note', IN_GAS ? 'Open this site from your personal link to make picks. Everyone’s picks are revealed once the week locks.' : 'Pick your name to make picks. Everyone’s picks are revealed once the week locks.')).style.margin = '-4px 0 12px'; if (!IN_GAS && !locked) signInBox(c); }
     else if (!locked) add(c, el('p', 'note', 'Tap a team to pick it. You can change picks until kickoff Thursday night.')).style.margin = '-4px 0 12px';
     var btns = {};
