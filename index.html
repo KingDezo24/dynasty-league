@@ -110,7 +110,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 .tbl tr.seed td{background:rgba(79,156,255,.07)}
 .bar{height:6px;background:var(--line);border-radius:6px;min-width:90px;overflow:hidden;margin-top:5px}
 .bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:6px}
-.chartbox{position:relative;height:380px}
+.chartbox{position:relative;height:380px;width:100%;min-width:0;overflow:hidden}.chartbox canvas{max-width:100%}
 .rule{border-top:1px solid var(--line);padding:13px 0}
 .rule.first{border-top:0;padding-top:0}
 .rule .h{font-weight:600}
@@ -876,7 +876,8 @@ function chartCard(root, title, note, cfg, height) {
   var box = add(c, el('div', 'chartbox'));
   if (height) box.style.height = height + 'px';
   var cv = add(box, el('canvas'));
-  charts.push(new Chart(cv, cfg));
+  // Build the chart once every card is on the page, so the grid has its final column widths.
+  requestAnimationFrame(function () { if (document.body.contains(cv)) charts.push(new Chart(cv, cfg)); });
 }
 function barCfg(labels, sets, o) {
   o = o || {};
