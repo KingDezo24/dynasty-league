@@ -1188,7 +1188,23 @@ R.votes = function (root) {
     var warn = add(f, el('div', 'warn'));
     warn.style.display = 'none';
     add(warn, el('strong', null, 'Urgent matters are to be taken seriously.'));
-    add(warn, el('p', null, 'Urgent is only for problems that cannot wait for the regular March vote, like a rule gap affecting games this season. Submitting it posts to the league group chat right away, starts a 48-hour discussion there, and then opens a 24-hour vote. Do not use Urgent to skip the regular calendar.'));
+    add(warn, el('p', null, 'Urgent is only for problems that cannot wait for the regular March vote, like a rule gap affecting games this season. Submitting it posts to the league group chat right away and starts a discussion there, then opens a vote. You choose how long each lasts. Do not use Urgent to skip the regular calendar.'));
+    add(warn, el('label', 'flabel', 'How long should the discussion last?'));
+    var dsel = add(warn, el('select'));
+    add(dsel, el('option', null, 'Choose a discussion period')).value = '';
+    [[24, '24 hours'], [48, '48 hours'], [72, '3 days'], [120, '5 days'], [168, '7 days']].forEach(function (o) { add(dsel, el('option', null, o[1])).value = String(o[0]); });
+    add(warn, el('label', 'flabel', 'How long should the vote stay open?'));
+    var vsel = add(warn, el('select'));
+    add(vsel, el('option', null, 'Choose a voting period')).value = '';
+    [[12, '12 hours'], [24, '24 hours'], [48, '48 hours'], [72, '3 days']].forEach(function (o) { add(vsel, el('option', null, o[1])).value = String(o[0]); });
+    var tline = add(warn, el('p', 'meta'));
+    function tl() {
+      if (!dsel.value || !vsel.value) { tline.textContent = ''; return; }
+      var d = new Date(Date.now() + dsel.value * 3600e3), c2 = new Date(d.getTime() + vsel.value * 3600e3);
+      var f = function (x) { return x.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
+      tline.textContent = 'If you submit now: voting opens ' + f(d) + ' and closes ' + f(c2) + '.';
+    }
+    dsel.onchange = tl; vsel.onchange = tl;
     var ackL = add(warn, el('label', 'opt'));
     var ack = add(ackL, el('input'));
     ack.type = 'checkbox';
@@ -1199,13 +1215,14 @@ R.votes = function (root) {
     sb.onclick = function () {
       if (!t.value.trim() || !x.value.trim()) { sm.textContent = 'Add a title and describe the change.'; return; }
       if (!pr.value) { sm.textContent = 'Choose a priority level.'; return; }
+      if (pr.value === 'Urgent' && (!dsel.value || !vsel.value)) { sm.textContent = 'Choose how long the discussion and the vote should last.'; return; }
       if (pr.value === 'Urgent' && !ack.checked) { sm.textContent = 'Tick the box to confirm this is truly urgent.'; return; }
       sb.disabled = true; sm.textContent = 'Submitting...';
       runner().withSuccessHandler(function (res) {
         sb.disabled = false;
         if (res.ok) { FLASH = res.message; if (res.live) LIVE = res.live; show('votes'); } else sm.textContent = res.message;
       }).withFailureHandler(function (e) { sb.disabled = false; sm.textContent = 'Could not submit: ' + e.message; })
-        .submitProposal(me.token, { title: t.value, text: x.value, why: y.value, priority: pr.value, ackUrgent: ack.checked });
+        .submitProposal(me.token, { title: t.value, text: x.value, why: y.value, priority: pr.value, ackUrgent: ack.checked, discussHours: Number(dsel.value) || 0, voteHours: Number(vsel.value) || 0 });
     };
   }
   var lc = add(root, el('div', 'card'));
@@ -1230,7 +1247,7 @@ R.votes = function (root) {
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Urgent proposals skip the calendar: the group chat is notified right away, there is a 48-hour discussion there, and then a 24-hour vote.',
+    'Urgent proposals skip the calendar: the group chat is notified right away, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, vote 12 hours to 3 days).',
     'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
     'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
