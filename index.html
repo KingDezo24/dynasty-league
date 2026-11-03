@@ -701,7 +701,7 @@ var R = {};
 
 R.home = function (root) {
   var m = D.meta;
-  pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every 2 hours · last synced ' + m.synced, 'League HQ');
+  pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every hour · last synced ' + m.synced, 'League HQ');
   var tiles = add(root, el('div', 'tiles'));
   var belt = D.club && D.club.belt;
   if (belt && belt.holder) {
@@ -1034,11 +1034,14 @@ var PRIO = { Low: 'nice to have, no rush', Mid: 'worth fixing at the next vote',
 function propHead(box, p) {
   var h = add(box, el('h3', null, p.title));
   add(h, el('span', 'badge b-' + String(p.priority).toLowerCase(), p.priority));
-  add(h, el('span', 'badge b-status', p.status === 'Discussion' ? 'In discussion' : p.status === 'Submitted' ? 'Waiting for vote' : p.status));
+  add(h, el('span', 'badge b-status', p.status === 'Discussion' ? 'In discussion' : p.status === 'Submitted' ? 'Waiting for vote' : p.status === 'Announcing' ? 'Starting soon' : p.status === 'Opening' ? 'Vote opening' : p.status));
   add(box, el('p', 'meta', 'Proposed by ' + p.by + (p.submitted ? ' on ' + p.submitted : '') + (p.edited ? ' \u00b7 edited ' + p.edited : '')));
 }
+function hrsTxt(h) { h = Number(h); return h % 24 === 0 && h > 24 ? (h / 24) + ' days' : h + ' hours'; }
 function timeline(p) {
-  if (p.status === 'Discussion') return 'Discussion in the group chat until ' + p.discEnds + '. Voting then runs until ' + p.closes + '.';
+  if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsTxt(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsTxt(p.vh || 24) + ' vote.';
+  if (p.status === 'Opening') return 'The discussion is over. Voting opens when the notice goes out in the group chat and stays open ' + hrsTxt(p.vh || 24) + '.';
+  if (p.status === 'Discussion') return 'Discussion in the group chat until ' + p.discEnds + '. Voting opens once the group chat is told, and stays open ' + hrsTxt(p.vh || 24) + '.';
   if (p.status === 'Voting') return 'Voting is open until ' + p.closes + '. Results stay hidden until voting closes.';
   if (p.status === 'Passed' || p.status === 'Failed') return 'Result: ' + p.result + '. Voting closed ' + p.closes + '.';
   if (p.status === 'Submitted') return 'Goes on the ballot when the next regular vote opens.';
@@ -1202,7 +1205,7 @@ R.votes = function (root) {
       if (!dsel.value || !vsel.value) { tline.textContent = ''; return; }
       var d = new Date(Date.now() + dsel.value * 3600e3), c2 = new Date(d.getTime() + vsel.value * 3600e3);
       var f = function (x) { return x.toLocaleString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); };
-      tline.textContent = dsel.value === '0' ? 'If you submit now: voting opens right away and closes ' + f(c2) + '.' : 'If you submit now: voting opens ' + f(d) + ' and closes ' + f(c2) + '.';
+      tline.textContent = dsel.value === '0' ? 'Voting opens as soon as the group chat notice goes out and stays open ' + vsel.options[vsel.selectedIndex].text + '.' : 'The ' + dsel.options[dsel.selectedIndex].text + ' discussion starts when the group chat notice goes out, then voting stays open ' + vsel.options[vsel.selectedIndex].text + '.';
     }
     dsel.onchange = tl; vsel.onchange = tl;
     var ackL = add(warn, el('label', 'opt'));
@@ -1234,8 +1237,8 @@ R.votes = function (root) {
     if (p.text) add(box, el('p', 'ptext', p.text));
     if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
     add(box, el('p', 'note', timeline(p)));
-    if (me && p.by === me.owner && (p.status === 'Submitted' || p.status === 'Discussion')) editBlock(box, p, me);
-    if (isComm(me) && ['Submitted', 'Discussion', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
+    if (me && p.by === me.owner && ['Submitted', 'Announcing', 'Discussion'].indexOf(p.status) >= 0) editBlock(box, p, me);
+    if (isComm(me) && ['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
     suggestionsBlock(box, p, me);
   });
   var how = add(root, el('div', 'card'));
@@ -1247,7 +1250,7 @@ R.votes = function (root) {
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     "A proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Urgent proposals skip the calendar: the group chat is notified right away, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped so voting opens right away; vote 12 hours to 3 days).',
+    'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
     'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
     'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
@@ -1298,6 +1301,7 @@ function priorityBlock(box, p) {
     if (to === 'Urgent' && p.status !== 'Submitted') { m.textContent = 'Only proposals waiting for the regular vote can be made urgent.'; return; }
     var note = to === 'Urgent' ? 'This starts a 48-hour discussion, then a 24-hour vote, and tells the group chat.'
       : p.priority === 'Urgent' ? 'This moves it to the regular March ballot' + (p.status === 'Voting' ? ', cancels the urgent vote and clears any votes cast' : '') + ', and tells the group chat.' : '';
+    if (to === 'Urgent') note = 'This starts a 48-hour discussion and then a 24-hour vote, both timed from when the group chat notice goes out.';
     if (note && !armed) { armed = true; m.textContent = note + ' Tap Confirm to go ahead.'; b.textContent = 'Confirm'; return; }
     b.disabled = true; m.textContent = 'Saving...';
     runner().withSuccessHandler(function (res) {
@@ -1990,7 +1994,7 @@ function setHeader() {
   sy.textContent = '';
   add(sy, el('span', 'live'));
   add(sy, document.createTextNode('Synced ' + D.meta.synced));
-  document.getElementById('foot').textContent = 'Built from the league’s Sleeper data · refreshes every 2 hours · last synced ' + D.meta.synced;
+  document.getElementById('foot').textContent = 'Built from the league’s Sleeper data · refreshes every hour · last synced ' + D.meta.synced;
 }
 var NAV_BUILT = false;
 function buildNav() {
