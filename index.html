@@ -135,6 +135,7 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .prop.first{border-top:0;padding-top:4px}
 .prop h3{font-size:15.5px;margin:0 0 4px}
 .meta{color:var(--muted);font-size:13px;margin:0}
+.vcount{margin:8px 0 4px}.vcount .vt{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}.vcount .vt b{color:var(--ink)}.vcount .vb{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}.vcount .vb i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px}
 .ptext{margin:8px 0 6px;white-space:pre-line}
 .pwhy{margin:6px 0;color:var(--ink2);white-space:pre-line}
 .form{display:grid;gap:6px;max-width:720px}
@@ -1044,6 +1045,16 @@ function propHead(box, p) {
   add(box, el('p', 'meta', 'Proposed by ' + p.by + (p.submitted ? ' on ' + p.submitted : '') + (p.edited ? ' \u00b7 edited ' + p.edited : '')));
   if (p.rtype === 'custom' && p.choices) add(box, el('p', 'meta', 'Choices: ' + ['Keep the current rule'].concat(p.choices).join(' \u00b7 ')));
 }
+function voteCounter(box, p) {
+  if (p.status !== 'Voting') return;
+  var total = ((LIVE && LIVE.owners) || []).length || 12, n = Math.min(Number(p.votes) || 0, total);
+  var w = add(box, el('div', 'vcount'));
+  var t = add(w, el('div', 'vt'));
+  add(t, el('span', null, 'Votes cast'));
+  add(t, el('b', null, n + ' of ' + total + (n === total ? ' \u2014 everyone has voted' : '')));
+  var bar = add(w, el('div', 'vb'));
+  add(bar, el('i')).style.width = Math.round(n / total * 100) + '%';
+}
 function hrsTxt(h) { h = Number(h); return h % 24 === 0 && h > 24 ? (h / 24) + ' days' : h + ' hours'; }
 function timeline(p) {
   if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsTxt(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsTxt(p.vh || 24) + ' vote.';
@@ -1199,6 +1210,7 @@ R.votes = function (root) {
       if (p.text) add(box, el('p', 'ptext', p.text));
       if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
       add(box, el('p', 'note', timeline(p)));
+      voteCounter(box, p);
       if ((p.suggestions || []).length) add(box, el('p', 'meta', p.suggestions.length + (p.suggestions.length === 1 ? ' suggested fix' : ' suggested fixes') + ' \u2014 see All proposals below.'));
       var opts = add(box, el('div', 'opts'));
       (p.options || ['For', 'Against', 'Abstain']).forEach(function (v) {
@@ -1286,6 +1298,7 @@ R.votes = function (root) {
     if (p.text) add(box, el('p', 'ptext', p.text));
     if (p.why) add(box, el('p', 'pwhy', 'Why: ' + p.why));
     add(box, el('p', 'note', timeline(p)));
+    voteCounter(box, p);
     if (me && p.by === me.owner && ['Submitted', 'Announcing', 'Discussion'].indexOf(p.status) >= 0) editBlock(box, p, me);
     if (isComm(me) && ['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
     suggestionsBlock(box, p, me);
@@ -1298,6 +1311,7 @@ R.votes = function (root) {
     'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Pick your name and vote right here.',
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
+    'While a vote is open, everyone can see how many managers have voted so far. Who voted and how stays private, and the results are only shown once voting closes.',
     "A For / Against proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
     'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins; a tie for first, or Keep the current rule winning, means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
