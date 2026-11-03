@@ -701,7 +701,7 @@ var R = {};
 
 R.home = function (root) {
   var m = D.meta;
-  pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every 6 hours · last synced ' + m.synced, 'League HQ');
+  pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every 2 hours · last synced ' + m.synced, 'League HQ');
   var tiles = add(root, el('div', 'tiles'));
   var belt = D.club && D.club.belt;
   if (belt && belt.holder) {
@@ -1973,7 +1973,7 @@ function setHeader() {
   sy.textContent = '';
   add(sy, el('span', 'live'));
   add(sy, document.createTextNode('Synced ' + D.meta.synced));
-  document.getElementById('foot').textContent = 'Built from the league’s Sleeper data · refreshes every 6 hours · last synced ' + D.meta.synced;
+  document.getElementById('foot').textContent = 'Built from the league’s Sleeper data · refreshes every 2 hours · last synced ' + D.meta.synced;
 }
 var NAV_BUILT = false;
 function buildNav() {
