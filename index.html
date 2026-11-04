@@ -136,6 +136,7 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .prop.first{border-top:0;padding-top:4px}
 .prop h3{font-size:15.5px;margin:0 0 4px}
 .meta{color:var(--muted);font-size:13px;margin:0}
+.meta.pbar{color:var(--ink2);font-weight:600}
 .vcount{margin:8px 0 4px}.vcount .vt{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}.vcount .vt b{color:var(--ink)}.vcount .vb{height:6px;border-radius:3px;background:var(--line);overflow:hidden;margin-top:4px}.vcount .vb i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px}
 .ptext{margin:8px 0 6px;white-space:pre-line}
 .pwhy{margin:6px 0;color:var(--ink2);white-space:pre-line}
@@ -1062,6 +1063,15 @@ function propHead(box, p) {
   add(h, el('span', 'badge b-status', p.status === 'Discussion' ? 'In discussion' : p.status === 'Submitted' ? 'Waiting for vote' : p.status === 'Announcing' ? 'Starting soon' : p.status === 'Opening' ? 'Vote opening' : p.status));
   add(box, el('p', 'meta', 'Proposed by ' + p.by + (p.submitted ? ' on ' + p.submitted : '') + (p.edited ? ' \u00b7 edited ' + p.edited : '')));
   if (p.rtype === 'custom' && p.choices) add(box, el('p', 'meta', 'Choices: ' + ['Keep the current rule'].concat(p.choices).join(' \u00b7 ')));
+  var bt = barText(p);
+  if (bt) add(box, el('p', 'meta pbar', bt));
+}
+/* Rule 10.4: votes during the season need 2/3 of the votes cast; offseason votes (including the March ballot) need a majority. */
+function barText(p) {
+  if (['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) < 0) return '';
+  var two = p.status !== 'Submitted' && p.bar === '2/3';
+  if (p.rtype === 'custom') return two ? 'To pass: the top choice needs at least 2/3 of the votes cast (in-season vote).' : 'To pass: the choice with the most votes wins.';
+  return two ? 'To pass: at least 2/3 of the votes cast must be For (in-season vote).' : 'To pass: a majority of the votes cast.';
 }
 function voteCounter(box, p) {
   if (p.status !== 'Voting') return;
@@ -1331,8 +1341,8 @@ R.votes = function (root) {
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
     'While a vote is open, everyone can see how many managers have voted so far. Who voted, and how, stays private, and the results are only shown once voting closes.',
-    "A For / Against proposal passes with a majority of the votes cast. A tie fails, and abstentions don't count.",
-    'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins; a tie for first, or Keep the current rule winning, means no change.',
+    "Offseason votes, including the March ballot, pass with a majority of the votes cast. Votes during the season (from the Week 1 kickoff through Week 17) need at least two-thirds of the votes cast. A tie fails, and abstentions don't count.",
+    'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins, and during the season it also needs two-thirds of the votes cast. A tie for first, Keep the current rule winning, or an in-season winner short of two-thirds means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
     'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
     'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
