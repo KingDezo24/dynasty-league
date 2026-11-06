@@ -431,7 +431,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse', 'setPassRule'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -1069,9 +1069,10 @@ function propHead(box, p) {
 /* Rule 10.4: votes during the season need 2/3 of the votes cast; offseason votes (including the March ballot) need a majority. */
 function barText(p) {
   if (['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) < 0) return '';
-  var two = p.status !== 'Submitted' && p.bar === '2/3';
-  if (p.rtype === 'custom') return two ? 'To pass: the top choice needs at least 2/3 of the votes cast (in-season vote).' : 'To pass: the choice with the most votes wins.';
-  return two ? 'To pass: at least 2/3 of the votes cast must be For (in-season vote).' : 'To pass: a majority of the votes cast.';
+  var two = p.barSet ? p.bar === '2/3' : p.status !== 'Submitted' && p.bar === '2/3';
+  var why = p.barSet ? ' (set by the commissioner)' : two ? ' (in-season vote)' : '';
+  if (p.rtype === 'custom') return two ? 'To pass: the top choice needs at least 2/3 of the votes cast' + why + '.' : 'To pass: the choice with the most votes wins' + why + '.';
+  return two ? 'To pass: at least 2/3 of the votes cast must be For' + why + '.' : 'To pass: a majority of the votes cast' + why + '.';
 }
 function voteCounter(box, p) {
   if (p.status !== 'Voting') return;
@@ -1345,7 +1346,7 @@ R.votes = function (root) {
     'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins, and during the season it also needs two-thirds of the votes cast. A tie for first, Keep the current rule winning, or an in-season winner short of two-thirds means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
     'When a vote closes, the result is logged on League Info (Vote History) with the date it was decided and the date it took effect or was declined. Passed proposals are added to the Rulebook automatically, under Article 11.',
-    'Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
+    'The commissioner can set a single vote to need a majority or two-thirds instead of the automatic amount; the proposal shows what it needs to pass. Only the commissioner can change a proposal’s priority or remove a proposal. Moving a proposal onto or off the urgent track is announced in the group chat.'
   ].forEach(function (s2) { add(ul, el('li', null, s2)); });
   if (me && LIVE.commissioner && me.owner === LIVE.commissioner) commissionerCard(root);
 };
@@ -1409,6 +1410,22 @@ function priorityBlock(box, p) {
       }
     }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not save: ' + e.message; }).setPriority(commCode(), p.id, to);
   };
+  if (['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) >= 0) {
+    var pr = add(w, el('div', 'rmrow'));
+    add(pr, el('div', 'ct', 'Commissioner: votes needed to pass'));
+    var ps = add(pr, el('select'));
+    [['', 'Automatic (2/3 in season)'], ['majority', 'Majority of votes cast'], ['2/3', 'Two-thirds of votes cast']].forEach(function (o) { var x = add(ps, el('option', null, o[1])); x.value = o[0]; if ((p.barSet ? p.bar : '') === o[0]) x.selected = true; });
+    var pb = add(pr, el('button', 'btn', 'Set'));
+    pb.onclick = function () {
+      if (ps.value === (p.barSet ? p.bar : '')) { m.textContent = 'That is already the setting.'; return; }
+      pb.disabled = true; m.textContent = 'Saving...';
+      runner().withSuccessHandler(function (res) {
+        pb.disabled = false;
+        if (res.ok) { FLASH = res.message; if (res.live) { res.live.me = LIVE.me; res.live.myVotes = LIVE.myVotes; LIVE = res.live; } show('votes'); }
+        else { m.textContent = res.message; if (/commissioner code is not right/.test(res.message)) store('dl-comm', null); }
+      }).withFailureHandler(function (e) { pb.disabled = false; m.textContent = 'Could not save: ' + e.message; }).setPassRule(commCode(), p.id, ps.value);
+    };
+  }
   if (['Submitted', 'Announcing', 'Discussion'].indexOf(p.status) >= 0) {
     var rr = add(w, el('div', 'rmrow'));
     var rd = add(rr, el('details'));
