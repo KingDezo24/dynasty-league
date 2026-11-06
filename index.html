@@ -160,6 +160,7 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .comm .ct{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:100%}
 .comm .btn{margin-top:0;padding:8px 14px}
 .comm .msg{width:100%;margin:0}
+.comm details{width:100%}.comm details select,.comm details textarea{display:block;width:100%;margin:8px 0}.chk{display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 8px}.wv select,.wv input{display:block;width:100%;margin:6px 0}.wv .btn{margin-right:8px}.wv .msg{margin-top:8px}.wv input,.comm details textarea{font:inherit;font-size:14px;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--card2);color:var(--ink);outline:none;box-sizing:border-box}
 .comm .rmrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;width:100%;border-top:1px solid var(--line);padding-top:8px}
 .btn.danger{background:#dc2626;color:#fff;box-shadow:none}
 .warn{background:var(--danger-bg);border:1px solid rgba(248,113,113,.35);border-left:4px solid #dc2626;border-radius:10px;padding:12px 14px;margin-top:6px}
@@ -431,7 +432,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse', 'setPassRule'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse', 'setPassRule', 'ruleOnVote', 'waivePenalty'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -952,6 +953,70 @@ function lineupPenCard(root) {
   var b = add(c, el('button', 'btn', 'Open Penalties'));
   b.onclick = function () { show('penalties'); };
 }
+function commRun(m, b, fn, args, done) {
+  b.disabled = true; m.textContent = 'Saving...';
+  var r = runner().withSuccessHandler(function (res) {
+    b.disabled = false;
+    if (res.ok) done(res); else { m.textContent = res.message; if (/commissioner code is not right/.test(res.message)) store('dl-comm', null); }
+  }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not save: ' + e.message; });
+  r[fn].apply(r, [commCode()].concat(args));
+}
+function waiveBlock(root, log) {
+  var c = add(root, el('div', 'card wv'));
+  add(c, el('h2', null, 'Commissioner: waive a penalty'));
+  add(c, el('p', 'note', 'For a wrong call, like a postponed game or a player ruled out after his game locked. A waived infraction stays on the list but adds nothing to Max PF.')).style.margin = '-6px 0 10px';
+  var key = function (r) { return [r.season, r.week, r.rid, r.spot, r.player].join('|'); };
+  var label = function (r) { return 'Wk ' + r.week + ' \u00b7 ' + r.team + ' \u00b7 ' + r.spot + (r.player ? ' \u00b7 ' + r.player : '') + ' \u00b7 ' + r.problem; };
+  var m = el('p', 'msg');
+  var live = log.filter(function (r) { return !r.waived; }), gone = log.filter(function (r) { return r.waived; });
+  if (live.length) {
+    var s1 = add(c, el('select'));
+    live.slice().reverse().forEach(function (r) { var o = add(s1, el('option', null, label(r))); o.value = r.row; });
+    var why = add(c, el('input')); why.placeholder = 'Reason (shown on this page)'; why.maxLength = 300;
+    var b1 = add(c, el('button', 'btn', 'Waive'));
+    b1.onclick = function () {
+      var r = live.find(function (x) { return String(x.row) === s1.value; });
+      if (!r) return;
+      if (why.value.trim().length < 3) { m.textContent = 'Give a short reason first.'; return; }
+      commRun(m, b1, 'waivePenalty', [r.row, key(r), why.value, false], function (res) { FLASH = res.message; if (res.log && D.penalties) D.penalties.log = res.log; show('penalties'); });
+    };
+  }
+  if (gone.length) {
+    var s2 = add(c, el('select'));
+    gone.slice().reverse().forEach(function (r) { var o = add(s2, el('option', null, label(r))); o.value = r.row; });
+    var b2 = add(c, el('button', 'btn', 'Restore'));
+    b2.onclick = function () {
+      var r = gone.find(function (x) { return String(x.row) === s2.value; });
+      if (r) commRun(m, b2, 'waivePenalty', [r.row, key(r), '', true], function (res) { FLASH = res.message; if (res.log && D.penalties) D.penalties.log = res.log; show('penalties'); });
+    };
+  }
+  add(c, m);
+}
+function rulingBlock(box, p) {
+  var w = add(box, el('div', 'comm'));
+  var d = add(w, el('details'));
+  add(d, el('summary', null, 'Commissioner: rule on this vote'));
+  add(d, el('p', 'note', 'Overrides the result. Vote History and the Rulebook are updated, and the original result is kept in the record.'));
+  var out = add(d, el('select'));
+  [['Passed', 'Passed'], ['Failed', 'Failed (current rule stays)']].forEach(function (o) { var x = add(out, el('option', null, o[1])); x.value = o[0]; if (o[0] !== p.status) x.selected = true; });
+  var ch = null;
+  if (p.rtype === 'custom' && p.choices && p.choices.length) {
+    ch = add(d, el('select'));
+    p.choices.forEach(function (c2) { var x = add(ch, el('option', null, 'Adopt: ' + c2)); x.value = c2; });
+    var sync = function () { ch.style.display = out.value === 'Passed' ? '' : 'none'; };
+    out.onchange = sync; sync();
+  }
+  var why = add(d, el('textarea')); why.rows = 2; why.placeholder = 'Reason for the ruling (shown to the league)'; why.maxLength = 500;
+  var lab = add(d, el('label', 'chk')); var cb = add(lab, el('input')); cb.type = 'checkbox'; cb.checked = true; add(lab, document.createTextNode(' Tell the group chat'));
+  var b = add(d, el('button', 'btn', 'Make ruling'));
+  var m = add(d, el('p', 'msg')), armed = false;
+  b.onclick = function () {
+    if (why.value.trim().length < 5) { m.textContent = 'Give a short reason first.'; return; }
+    if (!armed) { armed = true; b.textContent = 'Confirm ruling'; m.textContent = 'This changes "' + p.title + '" to ' + out.value + (ch && out.value === 'Passed' ? ' ("' + ch.value + '")' : '') + '. Tap Confirm ruling to go ahead.'; return; }
+    armed = false; b.textContent = 'Make ruling';
+    commRun(m, b, 'ruleOnVote', [p.id, out.value, ch ? ch.value : '', why.value, cb.checked], function (res) { FLASH = res.message; if (res.live) { res.live.me = LIVE.me; res.live.myVotes = LIVE.myVotes; LIVE = res.live; } show('votes'); });
+  };
+}
 function pickMove(a, b) { if (!a || !b) return '\u2014'; if (a === b) return 'No change'; return b > a ? 'Later by ' + (b - a) : 'Earlier by ' + (a - b); }
 R.penalties = function (root) {
   var P = D.penalties || {}, amt = Number(P.amount) || 0, teams = (P.teams || []).slice();
@@ -988,14 +1053,13 @@ R.penalties = function (root) {
     add(dd, el('summary', null, 'Every Weeks 1-' + (P.from - 1) + ' infraction (' + wi.length + ')'));
     add(dd, table(['Week', 'Team', 'Spot', 'Player', 'Problem'], wi.map(function (r) { return [r[0], r[2], r[3], r[4] || '\u2014', r[5]]; }), { bold: [1] }));
   }
-  var lp = D.lineupPen || [], hi = -1;
-  for (var i = 0; i < lp.length; i++) if (lp[i] && lp[i][0] === 'Season') { hi = i; break; }
-  var rows = hi >= 0 ? lp.slice(hi + 1).filter(function (r) { return r && r[0]; }) : [];
-  if (rows.length) {
+  var log = P.log || [];
+  if (log.length) {
     var c4 = add(root, el('div', 'card'));
     add(c4, el('h2', null, 'Every infraction'));
-    add(c4, table(['Season', 'Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], rows.slice().reverse().map(function (r) { return [r[0], r[1], r[2], r[5], r[6] || '\u2014', r[7], '+' + r[8]]; }), { filters: [0, 2], bold: [2] }));
+    add(c4, table(['Season', 'Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], log.slice().reverse().map(function (r) { return [r.season, r.week, r.team, r.spot, r.player || '\u2014', r.waived ? r.problem + ' (' + r.waived + ')' : r.problem, r.waived ? '0 (waived)' : '+' + r.pts]; }), { filters: [0, 2], bold: [2] }));
   }
+  if (isComm(LIVE && LIVE.me) && log.length) waiveBlock(root, log);
   (P.past || []).slice().reverse().forEach(function (ps) {
     var c5 = add(root, el('div', 'card'));
     add(c5, el('h2', null, ps.season + ' season (final)'));
@@ -1395,6 +1459,7 @@ R.votes = function (root) {
     voteCounter(box, p);
     if (me && p.by === me.owner && ['Submitted', 'Announcing', 'Discussion'].indexOf(p.status) >= 0) editBlock(box, p, me);
     if (isComm(me) && ['Submitted', 'Announcing', 'Discussion', 'Opening', 'Voting'].indexOf(p.status) >= 0) priorityBlock(box, p);
+    if (isComm(me) && ['Passed', 'Failed'].indexOf(p.status) >= 0) rulingBlock(box, p);
     suggestionsBlock(box, p, me);
   });
   var how = add(root, el('div', 'card'));
