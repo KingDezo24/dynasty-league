@@ -950,7 +950,7 @@ function lineupPenCard(root) {
   var rows = hi >= 0 ? p.slice(hi + 1).filter(function (r) { return r && r[0]; }) : [];
   var c = add(root, el('div', 'card'));
   add(c, el('h2', null, 'Lineup penalties'));
-  add(c, el('p', 'note', 'Rule 11.2: from Week 9 of 2026, each starter who did not play (inactive, out, IR, PUP, NA, healthy scratch or on bye), each empty starting spot and each empty roster spot when Sunday\u2019s games start adds ' + (amt ? amt + (amt === 1 ? ' point' : ' points') : 'a penalty') + ' to that team\u2019s Max PF. The draft order above already includes them. Checked every Tuesday morning, with a report in the group chat.')).style.margin = '-6px 0 10px';
+  add(c, el('p', 'note', 'Rule 11.2: from Week 9 of 2026, each starter who did not play (inactive, out, IR, PUP, NA, healthy scratch or on bye), each empty starting spot and each roster spot still empty at Monday Night Football kickoff adds ' + (amt ? amt + (amt === 1 ? ' point' : ' points') : 'a penalty') + ' to that team\u2019s Max PF. The draft order above already includes them. Checked every Tuesday morning, with a report in the group chat.')).style.margin = '-6px 0 10px';
   if (!amt) { add(c, el('p', 'meta', 'The points per infraction are being set by league vote. Tracking starts as soon as the amount is set.')); return; }
   if (!rows.length) { add(c, el('p', 'meta', 'No infractions so far.')); return; }
   var tot = {}, order = [];
