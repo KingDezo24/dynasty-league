@@ -935,11 +935,32 @@ R.picks = function (root) {
       add(c2, table(['Pick', 'Team'], rec.map(function (r) { return [r[6], r[7]]; }), { bold: [1] }));
     }
   }
+  lineupPenCard(root);
   renderBlocks(root, D.tabs.ledger, { subHead: true, table: function (ti) {
     if (ti === 0) return { bold: [0] };
     return { filters: [4, 3, 0, 1], search: 'Search owners or trades', bold: [4] };
   } });
 };
+
+/* Rule 11.2: lineup penalties from the Lineup Penalties tab (checked every Tuesday morning by the sync). */
+function lineupPenCard(root) {
+  var p = D.lineupPen || [], hi = -1;
+  for (var i = 0; i < p.length; i++) if (p[i] && p[i][0] === 'Season') { hi = i; break; }
+  var amt = Number((p[2] || [])[1]) || 0;
+  var rows = hi >= 0 ? p.slice(hi + 1).filter(function (r) { return r && r[0]; }) : [];
+  var c = add(root, el('div', 'card'));
+  add(c, el('h2', null, 'Lineup penalties'));
+  add(c, el('p', 'note', 'Rule 11.2: from Week 9 of 2026, each starter who did not play (inactive, out, IR, PUP, NA, healthy scratch or on bye), each empty starting spot and each empty roster spot when Sunday\u2019s games start adds ' + (amt ? amt + (amt === 1 ? ' point' : ' points') : 'a penalty') + ' to that team\u2019s Max PF. The draft order above already includes them. Checked every Tuesday morning, with a report in the group chat.')).style.margin = '-6px 0 10px';
+  if (!amt) { add(c, el('p', 'meta', 'The points per infraction are being set by league vote. Tracking starts as soon as the amount is set.')); return; }
+  if (!rows.length) { add(c, el('p', 'meta', 'No infractions so far.')); return; }
+  var tot = {}, order = [];
+  rows.forEach(function (r) { var k = r[2] + '|' + r[3]; if (!tot[k]) { tot[k] = [r[2], r[3], 0, 0]; order.push(k); } tot[k][2]++; tot[k][3] = Math.round((tot[k][3] + (Number(r[8]) || 0)) * 100) / 100; });
+  order.sort(function (a, b) { return tot[b][3] - tot[a][3]; });
+  add(c, table(['Team', 'Owner', 'Count', 'Max PF'], order.map(function (k) { return [tot[k][0], tot[k][1], tot[k][2], '+' + tot[k][3]]; }), { bold: [0] }));
+  var d = add(c, el('details'));
+  add(d, el('summary', null, 'Every infraction (' + rows.length + ')'));
+  add(d, table(['Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], rows.slice().reverse().map(function (r) { return [r[1], r[2], r[5], r[6] || '\u2014', r[7], '+' + r[8]]; }), { bold: [1] }));
+}
 
 R.drafts = function (root) { renderBlocks(root, D.tabs.drafts, { eyebrow: 'Rookie draft', table: function () { return { filters: [0, 4, 3, 6], search: 'Search players, owners or NFL teams', bold: [5] }; } }); };
 R.trades = function (root) { renderBlocks(root, D.tabs.trades, { eyebrow: 'Transactions', table: function () { return { filters: [4, 5, 2], search: 'Search players or picks', bold: [4] }; } }); };
