@@ -1102,7 +1102,7 @@ function voteCounter(box, p) {
   var t = add(w, el('div', 'vt'));
   add(t, el('span', null, 'Votes cast'));
   add(t, el('b', null, n + ' of ' + total + (n === total ? ' \u2014 everyone has voted' : '')));
-  if (n === total) add(w, el('p', 'meta', 'Everyone has voted, so this vote closes at the next hourly update and the results go out then.'));
+  if (n === total) add(w, el('p', 'meta', p.solo ? 'Everyone has voted, so this vote closes at the next hourly update and the results go out then.' : 'Everyone has voted on this one. All results go out together once every proposal on the ballot is complete, or when voting closes.'));
   var bar = add(w, el('div', 'vb'));
   add(bar, el('i')).style.width = Math.round(n / total * 100) + '%';
 }
@@ -1112,7 +1112,7 @@ function timeline(p) {
   if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsAdj(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsAdj(p.vh || 24) + ' vote.';
   if (p.status === 'Opening') return 'The discussion is over. Voting opens when the notice goes out in the group chat and stays open ' + hrsTxt(p.vh || 24) + '.';
   if (p.status === 'Discussion') return 'Discussion in the group chat until ' + p.discEnds + '. Voting opens once the group chat is told, and stays open ' + hrsTxt(p.vh || 24) + '.';
-  if (p.status === 'Voting') return 'Voting is open until ' + p.closes + ', or until all 12 managers have voted. Results stay hidden until voting closes.';
+  if (p.status === 'Voting') return 'Voting is open until ' + p.closes + (p.solo ? ', or until all 12 managers have voted' : '. If all 12 managers vote on every proposal before then, voting closes early') + '. Results stay hidden until voting closes.';
   if (p.status === 'Passed' || p.status === 'Failed') return 'Result: ' + p.result + '. Voting closed ' + p.closes + '.';
   if (p.status === 'Submitted') return 'Goes on the ballot when the next regular vote opens.';
   return '';
@@ -1363,7 +1363,7 @@ R.votes = function (root) {
     'Voting opens automatically on March 1 with a notice in the group chat. 48 hours before it closes, the group chat gets a reminder listing anyone who hasn’t voted. Pick your name and vote right here.',
     'Anyone can suggest a fix on an open proposal. Suggestions are listed under it for everyone to see. Only the owner who proposed it can edit it, until voting opens.',
     'Voting closes 14 days later, on March 14 at 11:59 PM ET, and the results are posted in the league group chat.',
-    'While a vote is open, everyone can see how many managers have voted so far. Who voted, and how, stays private, and the results are only shown once voting closes. A vote closes early as soon as every manager has voted, and the results go out at the next hourly update.',
+    'While a vote is open, everyone can see how many managers have voted so far. Who voted, and how, stays private, and the results are only shown once voting closes. During the season, a vote closes early as soon as every manager has voted, and its results go out at the next hourly update. In the offseason (the March ballot), voting closes early only once every manager has voted on every proposal, and all results go out together.',
     "Offseason votes, including the March ballot, pass with a majority of the votes cast. Votes during the season (from the Week 1 kickoff through Week 17) need at least two-thirds of the votes cast. A tie fails, and abstentions don't count.",
     'Proposals can also use custom choices written by the proposer (1 to 6 options). Keep the current rule is always choice 1, and there is no abstain option. The choice with the most votes wins, and during the season it also needs two-thirds of the votes cast. A tie for first, Keep the current rule winning, or an in-season winner short of two-thirds means no change.',
     'Urgent proposals skip the calendar: the group chat is notified, then there is a discussion and a vote. The proposer picks how long each lasts (discussion 24 hours to 7 days, or skipped; vote 12 hours to 3 days). Each clock starts when its notice actually goes out in the group chat.',
