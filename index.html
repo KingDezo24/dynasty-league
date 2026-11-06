@@ -1960,7 +1960,7 @@ R.pickem = function (root) {
   var p = clubData('pickem', root);
   var lv = LIVE && LIVE.pickem;
   var nx = p && p.next;
-  pageHead(root, "Pick'em", 'Pick the winner of every league game each week. Most correct picks over the season wins bragging rights.', nx ? 'Week ' + nx.week + ' picks lock ' + nx.lockText + ' (Thursday night kickoff)' : 'Picks open once next week’s matchups are set', 'Clubhouse');
+  pageHead(root, "Pick'em", 'Pick the winner of every league game each week. Most correct picks over the season wins bragging rights.', nx ? 'Week ' + nx.week + ' picks lock ' + nx.lockText + ' (Sunday, 1 PM ET)' : 'Picks open once next week’s matchups are set', 'Clubhouse');
   if (!p) return;
   if (FLASH) { add(root, el('div', 'flash', FLASH)); FLASH = ''; }
   var me = LIVE && LIVE.me;
@@ -1974,7 +1974,7 @@ R.pickem = function (root) {
     add(h, el('span', 'chip ' + (locked ? 'bad' : 'good'), locked ? 'Locked' : 'Open'));
     if (lv && lv.week === nx.week) add(h, el('span', 'chip dim', lv.count + ' of 12 owners ' + (lv.count === 1 ? 'has' : 'have') + ' picked'));
     if (!me) { add(c, el('p', 'note', IN_GAS ? 'Open this site from your personal link to make picks. Everyone’s picks are revealed once the week locks.' : 'Pick your name to make picks. Everyone’s picks are revealed once the week locks.')).style.margin = '-4px 0 12px'; if (!IN_GAS && !locked) signInBox(c); }
-    else if (!locked) add(c, el('p', 'note', 'Tap a team to pick it. You can change picks until kickoff Thursday night.')).style.margin = '-4px 0 12px';
+    else if (!locked) add(c, el('p', 'note', 'Tap a team to pick it. You can change picks until Sunday at 1 PM ET.')).style.margin = '-4px 0 12px';
     var btns = {};
     nx.games.forEach(function (gm) {
       var row = add(c, el('div', 'game'));
