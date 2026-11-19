@@ -949,7 +949,7 @@ function lineupPenCard(root) {
   (P.teams || []).forEach(function (t) { n += t.n || 0; });
   var c = add(root, el('div', 'card'));
   add(c, el('h2', null, 'Lineup penalties'));
-  add(c, el('p', 'note', (n ? n + (n === 1 ? ' infraction has' : ' infractions have') + ' been added to Max PF this season, and the draft order above includes them. ' : 'Lineup penalties (Rule 11.2) are added to Max PF, and the draft order above includes them. ') + 'See every infraction and how it moves the draft order on the Penalties page.')).style.margin = '-6px 0 10px';
+  add(c, el('p', 'note', P.repealed ? 'Lineup penalties (Rule 11.2) were repealed on Nov 19, 2026 (Rule 11.4). Every infraction was reversed, so nothing is added to Max PF and the draft order above is unaffected. The Penalties page keeps the record.' : (n ? n + (n === 1 ? ' infraction has' : ' infractions have') + ' been added to Max PF this season, and the draft order above includes them. ' : 'Lineup penalties (Rule 11.2) are added to Max PF, and the draft order above includes them. ') + 'See every infraction and how it moves the draft order on the Penalties page.')).style.margin = '-6px 0 10px';
   var b = add(c, el('button', 'btn', 'Open Penalties'));
   b.onclick = function () { show('penalties'); };
 }
@@ -1020,17 +1020,23 @@ function rulingBlock(box, p) {
 function pickMove(a, b) { if (!a || !b) return '\u2014'; if (a === b) return 'No change'; return b > a ? 'Later by ' + (b - a) : 'Earlier by ' + (a - b); }
 R.penalties = function (root) {
   var P = D.penalties || {}, amt = Number(P.amount) || 0, teams = (P.teams || []).slice();
-  pageHead(root, 'Lineup Penalties', 'Rule 11.2: every starter who did not play (OUT, DNR, IR, PUP, NA, healthy scratch or on bye), every empty starting spot and every roster spot still empty at Monday Night Football kickoff adds points to that team\u2019s season Max PF. A higher Max PF means a later rookie pick for teams that miss the playoffs.', 'Last synced ' + D.meta.synced + ' \u00b7 checked every Tuesday morning', 'League');
+  var rep = P.repealed;
+  pageHead(root, 'Lineup Penalties', (rep ? 'Repealed. ' : '') + 'Rule 11.2: every starter who did not play (OUT, DNR, IR, PUP, NA, healthy scratch or on bye), every empty starting spot and every roster spot still empty at Monday Night Football kickoff adds points to that team\u2019s season Max PF. A higher Max PF means a later rookie pick for teams that miss the playoffs.', 'Last synced ' + D.meta.synced + (rep ? ' \u00b7 no longer checked' : ' \u00b7 checked every Tuesday morning'), 'League');
+  if (rep) {
+    var cr = add(root, el('div', 'card'));
+    add(cr, el('h2', null, 'Rule repealed'));
+    add(cr, el('p', 'note', 'The league repealed lineup penalties (Rules 11.2 and 11.3) on Nov 19, 2026 with an 8-1 vote (P12, Rule 11.4). Every infraction below was reversed: none count toward Max PF or the draft order, and lineups are no longer checked. This page stays as a record.')).style.margin = '-6px 0 0';
+  }
   if (!P.teams) { add(add(root, el('div', 'card')), el('p', 'note', 'Penalty data appears after the next hourly update.')); return; }
   var from = P.from > 1 ? 'Week ' + P.from : 'Week 1';
   var c = add(root, el('div', 'card'));
   add(c, el('h2', null, P.season + ' season'));
-  add(c, el('p', 'note', (amt ? '+' + amt + ' Max PF ' + (amt === 1 ? 'point' : 'points') + ' per infraction, counted from ' + from + '.' : 'Counted from ' + from + '. The points per infraction are being set by league vote; totals appear once it is set.'))).style.margin = '-6px 0 10px';
+  add(c, el('p', 'note', rep ? 'While the rule was in effect: +' + amt + ' Max PF points per infraction, counted from ' + from + ' through Nov 19, 2026.' : (amt ? '+' + amt + ' Max PF ' + (amt === 1 ? 'point' : 'points') + ' per infraction, counted from ' + from + '.' : 'Counted from ' + from + '. The points per infraction are being set by league vote; totals appear once it is set.'))).style.margin = '-6px 0 10px';
   var hit = teams.filter(function (t) { return t.n; }).sort(function (a, b) { return b.pen - a.pen || b.n - a.n; });
-  if (!hit.length) add(c, el('p', 'meta', 'No infractions so far this season.'));
+  if (!hit.length) add(c, el('p', 'meta', rep ? 'No penalties count this season: every infraction was reversed.' : 'No infractions so far this season.'));
   else add(c, table(['Team', 'Owner', 'Count', 'Max PF'], hit.map(function (t) { return [t.team, t.owner, t.n, '+' + t.pen]; }), { bold: [0] }));
   var non = teams.filter(function (t) { return t.pickNo; }).sort(function (a, b) { return a.pickPen - b.pickPen; });
-  if (non.length) {
+  if (non.length && !rep) {
     var c2 = add(root, el('div', 'card'));
     add(c2, el('h2', null, 'Impact on the draft order'));
     var moved = non.filter(function (t) { return t.pickNo !== t.pickPen; }).length;
@@ -1057,9 +1063,9 @@ R.penalties = function (root) {
   if (log.length) {
     var c4 = add(root, el('div', 'card'));
     add(c4, el('h2', null, 'Every infraction'));
-    add(c4, table(['Season', 'Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], log.slice().reverse().map(function (r) { return [r.season, r.week, r.team, r.spot, r.player || '\u2014', r.waived ? r.problem + ' (' + r.waived + ')' : r.problem, r.waived ? '0 (waived)' : '+' + r.pts]; }), { filters: [0, 2], bold: [2] }));
+    add(c4, table(['Season', 'Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], log.slice().reverse().map(function (r) { return [r.season, r.week, r.team, r.spot, r.player || '\u2014', r.waived ? r.problem + ' (' + r.waived + ')' : r.problem, r.waived ? (/^Reversed/.test(r.waived) ? '0 (reversed)' : '0 (waived)') : '+' + r.pts]; }), { filters: [0, 2], bold: [2] }));
   }
-  if (isComm(LIVE && LIVE.me) && log.length) waiveBlock(root, log);
+  if (isComm(LIVE && LIVE.me) && log.length && !rep) waiveBlock(root, log);
   (P.past || []).slice().reverse().forEach(function (ps) {
     var c5 = add(root, el('div', 'card'));
     add(c5, el('h2', null, ps.season + ' season (final)'));
@@ -1218,7 +1224,7 @@ function timeline(p) {
   if (p.status === 'Announcing') return 'Starts when the notice goes out in the league group chat: ' + (p.dh ? 'a ' + hrsAdj(p.dh) + ' discussion, then a ' : 'no discussion, just a ') + hrsAdj(p.vh || 24) + ' vote.';
   if (p.status === 'Opening') return 'The discussion is over. Voting opens when the notice goes out in the group chat and stays open ' + hrsTxt(p.vh || 24) + '.';
   if (p.status === 'Discussion') return 'Discussion in the group chat until ' + p.discEnds + '. Voting opens once the group chat is told, and stays open ' + hrsTxt(p.vh || 24) + '.';
-  if (p.status === 'Voting') return 'Voting is open until ' + p.closes + (p.solo ? ', or until all 12 managers have voted' : '. If all 12 managers vote on every proposal before then, voting closes early') + '. Results stay hidden until voting closes.';
+  if (p.status === 'Voting') return 'Voting is open until ' + p.closes + (p.solo ? ', or sooner once all 12 managers have voted or the votes still out can no longer change the result' : '. If every proposal is complete before then (all 12 managers voted, or the votes still out can no longer change the result), voting closes early') + '. Results stay hidden until voting closes.';
   if (p.status === 'Passed' || p.status === 'Failed') return 'Result: ' + p.result + '. Voting closed ' + p.closes + '.';
   if (p.status === 'Submitted') return 'Goes on the ballot when the next regular vote opens.';
   return '';
