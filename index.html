@@ -118,6 +118,7 @@ table.tbl{border-collapse:collapse;width:100%;font-size:13.5px}
 .rule .w{margin:4px 0;color:var(--ink2)}
 .rule .m{color:var(--ink2);background:var(--card2);border:1px solid var(--line);border-radius:10px;padding:9px 11px;margin-top:7px}
 .rule .tags{display:flex;flex-wrap:wrap;gap:6px}.rule .tags .tag{margin-top:7px}.tag.since{color:var(--ink2);background:transparent;border:1px solid var(--line2)}
+.card.alert{border-left:4px solid var(--line2)}.card.alert.bad{border-left-color:var(--bad)}.card.alert.ok{border-left-color:var(--good)}.osrow{display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--line)}.osrow:first-of-type{border-top:0}.oswhen{flex:0 0 96px;font-weight:600;font-size:13px;color:var(--ink2)}.osrow.done{opacity:.55}.oslabel{font-weight:600}.oslabel .tag{margin:0 0 0 8px}.meta.strong{font-weight:600;color:var(--ink)}
 .tag,.chip{display:inline-block;font:600 11px Inter,sans-serif;color:var(--chip-ink);background:var(--chip);border-radius:999px;padding:3px 10px;margin-top:6px}
 .chip{margin:0}
 .chip.good{background:rgba(52,211,153,.14);color:var(--good)}
@@ -726,6 +727,12 @@ var R = {};
 R.home = function (root) {
   var m = D.meta;
   pageHead(root, 'Dynasty League', m.season + ' season' + (m.week ? ', Week ' + m.week + ' of ' + m.regWeeks + ' complete' : ''), 'Live from Sleeper · updated every hour · last synced ' + m.synced, 'League HQ');
+  if (isComm(LIVE && LIVE.me)) (D.commAlerts || []).forEach(function (a) {
+    var ac = add(root, el('div', 'card alert ' + a.level));
+    add(ac, el('h2', null, a.title));
+    add(ac, el('p', 'note', a.text)).style.margin = '-6px 0 0';
+    add(ac, el('p', 'meta', 'Only you see this, as commissioner.'));
+  });
   var tiles = add(root, el('div', 'tiles'));
   var belt = D.club && D.club.belt;
   if (belt && belt.holder) {
@@ -919,6 +926,13 @@ R.charts = function (root) {
 R.picks = function (root) {
   var d = D.draftOrder || [];
   pageHead(root, 'Draft Picks', 'The projected order for the next rookie draft, and who owns every future pick and how they got it.', 'Last synced ' + D.meta.synced, 'Rookie draft');
+  var dl = D.draftLive;
+  if (dl) {
+    var lc = add(root, el('div', 'card'));
+    add(lc, el('h2', null, 'The ' + dl.season + ' rookie draft is ' + (dl.status === 'complete' ? 'complete' : 'live')));
+    add(lc, el('p', 'note', dl.made + ' of ' + dl.total + ' picks made' + (dl.clock ? '. On the clock: ' + dl.clock.label + ' ' + dl.clock.team + ' (' + dl.clock.owner + ')' + (dl.clock.until ? ', until ' + dl.clock.until : '') + '.' : '.') + ' New picks post to the group chat every hour.')).style.margin = '-6px 0 10px';
+    (dl.recent || []).forEach(function (t, i) { add(lc, el('div', i ? 'meta' : 'meta strong', t)); });
+  }
   var hi = -1;
   for (var i = 0; i < d.length; i++) if (d[i][0] === 'Pick') { hi = i; break; }
   if (hi >= 0) {
@@ -1075,7 +1089,21 @@ function sheetBlocks(root, rows, tableOpt) {
 }
 
 R.league = function (root) {
-  pageHead(root, 'League Info', 'Scoring, dues and payouts, every rule-change vote, and the teams.', 'Last synced ' + D.meta.synced, 'League');
+  pageHead(root, 'League Info', 'The offseason calendar, scoring, dues and payouts, every rule-change vote, and the teams.', 'Last synced ' + D.meta.synced, 'League');
+  var os = D.offseason || [];
+  if (os.length) {
+    var oc = add(root, el('div', 'card'));
+    add(oc, el('h2', null, 'Offseason checklist'));
+    add(oc, el('p', 'note', 'Key dates from the end of this season to the next one. Items marked Auto send their own reminders to the group chat.')).style.margin = '-6px 0 10px';
+    os.forEach(function (it) {
+      var row = add(oc, el('div', 'osrow' + (it.done ? ' done' : '')));
+      add(row, el('div', 'oswhen', it.when || 'TBD'));
+      var b = add(row, el('div', 'osbody'));
+      var t = add(b, el('div', 'oslabel', (it.done ? '✓ ' : '') + it.label));
+      if (it.auto) add(t, el('span', 'tag', 'Auto'));
+      if (it.note) add(b, el('div', 'meta', it.note));
+    });
+  }
   var sc = D.sheets.scoring || [];
   if (sc.length > 4) {
     var c = add(root, el('div', 'card'));
