@@ -160,7 +160,7 @@ footer.wrap{color:var(--muted);font:500 11.5px "JetBrains Mono",monospace;paddin
 .comm .ct{font:600 10.5px "JetBrains Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);width:100%}
 .comm .btn{margin-top:0;padding:8px 14px}
 .comm .msg{width:100%;margin:0}
-.comm details{width:100%}.comm details select,.comm details textarea{display:block;width:100%;margin:8px 0}.chk{display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 8px}.wv select,.wv input{display:block;width:100%;margin:6px 0}.wv .btn{margin-right:8px}.wv .msg{margin-top:8px}.wv input,.comm details textarea{font:inherit;font-size:14px;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--card2);color:var(--ink);outline:none;box-sizing:border-box}
+.comm details{width:100%}.comm details select,.comm details textarea{display:block;width:100%;margin:8px 0}.chk{display:flex;gap:6px;align-items:center;font-size:13px;margin:4px 0 8px}.comm details textarea{font:inherit;font-size:14px;padding:8px 11px;border:1px solid var(--line2);border-radius:10px;background:var(--card2);color:var(--ink);outline:none;box-sizing:border-box}
 .comm .rmrow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;width:100%;border-top:1px solid var(--line);padding-top:8px}
 .btn.danger{background:#dc2626;color:#fff;box-shadow:none}
 .warn{background:var(--danger-bg);border:1px solid rgba(248,113,113,.35);border-left:4px solid #dc2626;border-radius:10px;padding:12px 14px;margin-top:6px}
@@ -432,7 +432,7 @@ function runner() {
   if (window.google && google.script && google.script.run) return google.script.run;
   var h = { ok: function () {}, fail: function () {} };
   var o = { withSuccessHandler: function (f) { h.ok = f; return o; }, withFailureHandler: function (f) { h.fail = f; return o; } };
-  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse', 'setPassRule', 'ruleOnVote', 'waivePenalty'].forEach(function (fn) {
+  ['castBallot', 'submitProposal', 'savePicks', 'addSuggestion', 'editProposal', 'checkCommissioner', 'setPriority', 'removeProposal', 'setResponse', 'setPassRule', 'ruleOnVote'].forEach(function (fn) {
     o[fn] = function () {
       var args = Array.prototype.slice.call(arguments);
       fetch(API_URL, { method: 'POST', body: JSON.stringify({ fn: fn, args: args }) })
@@ -444,7 +444,7 @@ function runner() {
   return o;
 }
 function saveCache() { if (!IN_GAS && D && D.meta) { try { localStorage.setItem('dl-cache', JSON.stringify({ data: D, live: LIVE })); } catch (e) {} } }
-var PAGES = [['home','Home'],['standings','Standings'],['power','Power Rankings'],['matchups','Matchups'],['odds','Playoff Odds'],['charts','Charts'],['club','Clubhouse'],['picks','Draft Picks'],['penalties','Penalties'],['drafts','Draft History'],['trades','Trades'],['records','Records'],['history','History'],['rules','Rulebook'],['votes','Rule Changes'],['league','League Info']];
+var PAGES = [['home','Home'],['standings','Standings'],['power','Power Rankings'],['matchups','Matchups'],['odds','Playoff Odds'],['charts','Charts'],['club','Clubhouse'],['picks','Draft Picks'],['drafts','Draft History'],['trades','Trades'],['records','Records'],['history','History'],['rules','Rulebook'],['votes','Rule Changes'],['league','League Info']];
 var CLUB = [
   ['belt', 'The Belt', 'A title belt that changes hands every time the holder loses.', 'belt'],
   ['doors', 'Sliding Doors', 'Every trade replayed as if it never happened.', 'doors'],
@@ -936,23 +936,12 @@ R.picks = function (root) {
       add(c2, table(['Pick', 'Team'], rec.map(function (r) { return [r[6], r[7]]; }), { bold: [1] }));
     }
   }
-  lineupPenCard(root);
   renderBlocks(root, D.tabs.ledger, { subHead: true, table: function (ti) {
     if (ti === 0) return { bold: [0] };
     return { filters: [4, 3, 0, 1], search: 'Search owners or trades', bold: [4] };
   } });
 };
 
-/* Rule 11.2: a short pointer from Draft Picks to the Penalties page. */
-function lineupPenCard(root) {
-  var P = D.penalties || {}, n = 0;
-  (P.teams || []).forEach(function (t) { n += t.n || 0; });
-  var c = add(root, el('div', 'card'));
-  add(c, el('h2', null, 'Lineup penalties'));
-  add(c, el('p', 'note', P.repealed ? 'Lineup penalties (Rule 11.2) were repealed on Nov 19, 2026 (Rule 11.4). Every infraction was reversed, so nothing is added to Max PF and the draft order above is unaffected. The Penalties page keeps the record.' : (n ? n + (n === 1 ? ' infraction has' : ' infractions have') + ' been added to Max PF this season, and the draft order above includes them. ' : 'Lineup penalties (Rule 11.2) are added to Max PF, and the draft order above includes them. ') + 'See every infraction and how it moves the draft order on the Penalties page.')).style.margin = '-6px 0 10px';
-  var b = add(c, el('button', 'btn', 'Open Penalties'));
-  b.onclick = function () { show('penalties'); };
-}
 function commRun(m, b, fn, args, done) {
   b.disabled = true; m.textContent = 'Saving...';
   var r = runner().withSuccessHandler(function (res) {
@@ -960,37 +949,6 @@ function commRun(m, b, fn, args, done) {
     if (res.ok) done(res); else { m.textContent = res.message; if (/commissioner code is not right/.test(res.message)) store('dl-comm', null); }
   }).withFailureHandler(function (e) { b.disabled = false; m.textContent = 'Could not save: ' + e.message; });
   r[fn].apply(r, [commCode()].concat(args));
-}
-function waiveBlock(root, log) {
-  var c = add(root, el('div', 'card wv'));
-  add(c, el('h2', null, 'Commissioner: waive a penalty'));
-  add(c, el('p', 'note', 'For a wrong call, like a postponed game or a player ruled out after his game locked. A waived infraction stays on the list but adds nothing to Max PF.')).style.margin = '-6px 0 10px';
-  var key = function (r) { return [r.season, r.week, r.rid, r.spot, r.player].join('|'); };
-  var label = function (r) { return 'Wk ' + r.week + ' \u00b7 ' + r.team + ' \u00b7 ' + r.spot + (r.player ? ' \u00b7 ' + r.player : '') + ' \u00b7 ' + r.problem; };
-  var m = el('p', 'msg');
-  var live = log.filter(function (r) { return !r.waived; }), gone = log.filter(function (r) { return r.waived; });
-  if (live.length) {
-    var s1 = add(c, el('select'));
-    live.slice().reverse().forEach(function (r) { var o = add(s1, el('option', null, label(r))); o.value = r.row; });
-    var why = add(c, el('input')); why.placeholder = 'Reason (shown on this page)'; why.maxLength = 300;
-    var b1 = add(c, el('button', 'btn', 'Waive'));
-    b1.onclick = function () {
-      var r = live.find(function (x) { return String(x.row) === s1.value; });
-      if (!r) return;
-      if (why.value.trim().length < 3) { m.textContent = 'Give a short reason first.'; return; }
-      commRun(m, b1, 'waivePenalty', [r.row, key(r), why.value, false], function (res) { FLASH = res.message; if (res.log && D.penalties) D.penalties.log = res.log; show('penalties'); });
-    };
-  }
-  if (gone.length) {
-    var s2 = add(c, el('select'));
-    gone.slice().reverse().forEach(function (r) { var o = add(s2, el('option', null, label(r))); o.value = r.row; });
-    var b2 = add(c, el('button', 'btn', 'Restore'));
-    b2.onclick = function () {
-      var r = gone.find(function (x) { return String(x.row) === s2.value; });
-      if (r) commRun(m, b2, 'waivePenalty', [r.row, key(r), '', true], function (res) { FLASH = res.message; if (res.log && D.penalties) D.penalties.log = res.log; show('penalties'); });
-    };
-  }
-  add(c, m);
 }
 function rulingBlock(box, p) {
   var w = add(box, el('div', 'comm'));
@@ -1017,62 +975,6 @@ function rulingBlock(box, p) {
     commRun(m, b, 'ruleOnVote', [p.id, out.value, ch ? ch.value : '', why.value, cb.checked], function (res) { FLASH = res.message; if (res.live) { res.live.me = LIVE.me; res.live.myVotes = LIVE.myVotes; LIVE = res.live; } show('votes'); });
   };
 }
-function pickMove(a, b) { if (!a || !b) return '\u2014'; if (a === b) return 'No change'; return b > a ? 'Later by ' + (b - a) : 'Earlier by ' + (a - b); }
-R.penalties = function (root) {
-  var P = D.penalties || {}, amt = Number(P.amount) || 0, teams = (P.teams || []).slice();
-  var rep = P.repealed;
-  pageHead(root, 'Lineup Penalties', (rep ? 'Repealed. ' : '') + 'Rule 11.2: every starter who did not play (OUT, DNR, IR, PUP, NA, healthy scratch or on bye), every empty starting spot and every roster spot still empty at Monday Night Football kickoff adds points to that team\u2019s season Max PF. A higher Max PF means a later rookie pick for teams that miss the playoffs.', 'Last synced ' + D.meta.synced + (rep ? ' \u00b7 no longer checked' : ' \u00b7 checked every Tuesday morning'), 'League');
-  if (rep) {
-    var cr = add(root, el('div', 'card'));
-    add(cr, el('h2', null, 'Rule repealed'));
-    add(cr, el('p', 'note', 'The league repealed lineup penalties (Rules 11.2 and 11.3) on Nov 19, 2026 with an 8-1 vote (P12, Rule 11.4). Every infraction below was reversed: none count toward Max PF or the draft order, and lineups are no longer checked. This page stays as a record.')).style.margin = '-6px 0 0';
-  }
-  if (!P.teams) { add(add(root, el('div', 'card')), el('p', 'note', 'Penalty data appears after the next hourly update.')); return; }
-  var from = P.from > 1 ? 'Week ' + P.from : 'Week 1';
-  var c = add(root, el('div', 'card'));
-  add(c, el('h2', null, P.season + ' season'));
-  add(c, el('p', 'note', rep ? 'While the rule was in effect: +' + amt + ' Max PF points per infraction, counted from ' + from + ' through Nov 19, 2026.' : (amt ? '+' + amt + ' Max PF ' + (amt === 1 ? 'point' : 'points') + ' per infraction, counted from ' + from + '.' : 'Counted from ' + from + '. The points per infraction are being set by league vote; totals appear once it is set.'))).style.margin = '-6px 0 10px';
-  var hit = teams.filter(function (t) { return t.n; }).sort(function (a, b) { return b.pen - a.pen || b.n - a.n; });
-  if (!hit.length) add(c, el('p', 'meta', rep ? 'No penalties count this season: every infraction was reversed.' : 'No infractions so far this season.'));
-  else add(c, table(['Team', 'Owner', 'Count', 'Max PF'], hit.map(function (t) { return [t.team, t.owner, t.n, '+' + t.pen]; }), { bold: [0] }));
-  var non = teams.filter(function (t) { return t.pickNo; }).sort(function (a, b) { return a.pickPen - b.pickPen; });
-  if (non.length && !rep) {
-    var c2 = add(root, el('div', 'card'));
-    add(c2, el('h2', null, 'Impact on the draft order'));
-    var moved = non.filter(function (t) { return t.pickNo !== t.pickPen; }).length;
-    add(c2, el('p', 'note', 'Projected picks 1-6 for the teams currently outside the playoffs, without penalties and with them. ' + (moved ? moved + (moved === 1 ? ' team has' : ' teams have') + ' moved so far.' : 'No team has moved yet.'))).style.margin = '-6px 0 10px';
-    add(c2, table(['Team', 'Without', 'With', 'Change'], non.map(function (t) { return [t.team, '#' + t.pickNo, '#' + t.pickPen, pickMove(t.pickNo, t.pickPen)]; }), { bold: [0] }));
-  }
-  var wi = P.whatIf || [];
-  if (P.from > 1 && wi.length) {
-    var c3 = add(root, el('div', 'card'));
-    add(c3, el('h2', null, 'If penalties had started in Week 1'));
-    add(c3, el('p', 'note', 'Not applied, for comparison only. Weeks 1-' + (P.from - 1) + ' had ' + wi.length + ' infractions by starters who did not play or empty starting spots. Empty roster spots weren\u2019t tracked before Week ' + P.from + ', so they aren\u2019t included.')).style.margin = '-6px 0 10px';
-    var byT = teams.filter(function (t) { return t.wiN; }).sort(function (a, b) { return b.wiN - a.wiN; });
-    if (amt) add(c3, table(['Team', 'Wk 1-' + (P.from - 1), 'Max PF', 'Pick'], byT.map(function (t) { return [t.team, t.wiN, '+' + Math.round(t.wiN * amt * 100) / 100, t.pickWi ? '#' + t.pickPen + ' \u2192 #' + t.pickWi : 'Playoff team']; }), { bold: [0] }));
-    else add(c3, table(['Team', 'Owner', 'Wk 1-' + (P.from - 1)], byT.map(function (t) { return [t.team, t.owner, t.wiN]; }), { bold: [0] }));
-    if (amt && non.length) {
-      var ch = non.filter(function (t) { return t.pickWi !== t.pickPen; }).length;
-      add(c3, el('p', 'meta', ch ? 'Counting Weeks 1-' + (P.from - 1) + ' would move ' + ch + ' of the ' + non.length + ' non-playoff teams in the projected draft order.' : 'Counting Weeks 1-' + (P.from - 1) + ' would not change the projected draft order.'));
-    }
-    var dd = add(c3, el('details'));
-    add(dd, el('summary', null, 'Every Weeks 1-' + (P.from - 1) + ' infraction (' + wi.length + ')'));
-    add(dd, table(['Week', 'Team', 'Spot', 'Player', 'Problem'], wi.map(function (r) { return [r[0], r[2], r[3], r[4] || '\u2014', r[5]]; }), { bold: [1] }));
-  }
-  var log = P.log || [];
-  if (log.length) {
-    var c4 = add(root, el('div', 'card'));
-    add(c4, el('h2', null, 'Every infraction'));
-    add(c4, table(['Season', 'Week', 'Team', 'Spot', 'Player', 'Problem', 'Points'], log.slice().reverse().map(function (r) { return [r.season, r.week, r.team, r.spot, r.player || '\u2014', r.waived ? r.problem + ' (' + r.waived + ')' : r.problem, r.waived ? (/^Reversed/.test(r.waived) ? '0 (reversed)' : '0 (waived)') : '+' + r.pts]; }), { filters: [0, 2], bold: [2] }));
-  }
-  if (isComm(LIVE && LIVE.me) && log.length && !rep) waiveBlock(root, log);
-  (P.past || []).slice().reverse().forEach(function (ps) {
-    var c5 = add(root, el('div', 'card'));
-    add(c5, el('h2', null, ps.season + ' season (final)'));
-    var t5 = (ps.teams || []).filter(function (t) { return t[2] || t[4]; });
-    add(c5, table(['Team', 'Count', 'Max PF', 'Pick'], t5.map(function (t) { return [t[0], t[2], '+' + t[3], t[4] ? '#' + t[4] + ' \u2192 #' + t[5] : 'Playoffs']; }), { bold: [0] }));
-  });
-};
 
 R.drafts = function (root) { renderBlocks(root, D.tabs.drafts, { eyebrow: 'Rookie draft', table: function () { return { filters: [0, 4, 3, 6], search: 'Search players, owners or NFL teams', bold: [5] }; } }); };
 R.trades = function (root) { renderBlocks(root, D.tabs.trades, { eyebrow: 'Transactions', table: function () { return { filters: [4, 5, 2], search: 'Search players or picks', bold: [4] }; } }); };
